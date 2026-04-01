@@ -57,25 +57,20 @@ struct ClaudeInstancesView: View {
                     }
                 }
 
-                // Buddy floating button — bottom right
+                // Buddy floating button — bottom right, ASCII art sprite
                 if let buddy = buddyReader.buddy {
                     Button {
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                             showBuddyCard.toggle()
                         }
                     } label: {
-                        Text(buddy.species.emoji)
-                            .font(.system(size: 24))
-                            .frame(width: 36, height: 36)
-                            .background(
-                                Circle()
-                                    .fill(Color.white.opacity(0.08))
-                                    .shadow(color: .white.opacity(0.1), radius: 8)
-                            )
+                        BuddyASCIIView(buddy: buddy)
+                            .frame(width: 80, height: 50)
+                            .scaleEffect(0.7)
                     }
                     .buttonStyle(.plain)
-                    .padding(.trailing, 8)
-                    .padding(.bottom, 4)
+                    .padding(.trailing, 4)
+                    .padding(.bottom, 2)
                 }
             }
         }

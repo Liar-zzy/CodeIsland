@@ -550,17 +550,16 @@ struct CollapsedNotchContent: View {
 
     var body: some View {
         HStack(spacing: 6) {
-            // Left: buddy emoji or pixel character
+            // Left: buddy emoji as animated pixel art
             if let buddy = buddyReader.buddy {
-                Text(buddy.species.emoji)
-                    .font(.system(size: 12))
-                    .offset(y: pulsePhase ? -1 : 1)
+                EmojiPixelView(emoji: buddy.species.emoji, style: .wave)
+                    .scaleEffect(0.3)
+                    .frame(width: 14, height: 14)
                     .matchedGeometryEffect(id: "crab", in: activityNamespace, isSource: true)
             } else {
                 PixelCharacterView(state: mostUrgentState)
                     .scaleEffect(0.28)
                     .frame(width: 14, height: 14)
-                    .offset(y: pulsePhase ? -1 : 1)
                     .matchedGeometryEffect(id: "crab", in: activityNamespace, isSource: true)
             }
 
