@@ -649,7 +649,7 @@ struct ToolCallView: View {
                 // Expand indicator (only for expandable tools)
                 if canExpand && tool.status != .running && tool.status != .waitingForApproval {
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 9, weight: .medium))
+                        .font(.system(size: 12, weight: .medium))
                         .foregroundColor(.white.opacity(0.3))
                         .rotationEffect(.degrees(isExpanded ? 90 : 0))
                         .animation(.spring(response: 0.25, dampingFraction: 0.8), value: isExpanded)
@@ -821,10 +821,10 @@ struct SubagentToolsSummary: View {
                 ForEach(toolCounts.prefix(5), id: \.0) { name, count in
                     HStack(spacing: 2) {
                         Text(name)
-                            .font(.system(size: 10, design: .monospaced))
+                            .font(.system(size: 11, design: .monospaced))
                             .foregroundColor(.white.opacity(0.4))
                         Text("×\(count)")
-                            .font(.system(size: 9, design: .monospaced))
+                            .font(.system(size: 11, design: .monospaced))
                             .foregroundColor(.white.opacity(0.3))
                     }
                 }
@@ -868,7 +868,7 @@ struct ThinkingView: View {
 
             if canExpand {
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 9, weight: .medium))
+                    .font(.system(size: 12, weight: .medium))
                     .foregroundColor(.gray.opacity(0.5))
                     .rotationEffect(.degrees(isExpanded ? 90 : 0))
                     .padding(.top, 3)

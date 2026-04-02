@@ -29,7 +29,7 @@ struct ClaudeInstancesView: View {
                     // Top bar: session count left, gear right
                     HStack {
                         Text("\(sessionMonitor.instances.count) \(L10n.sessions)")
-                            .font(.system(size: 10))
+                            .font(.system(size: 13))
                             .foregroundColor(.white.opacity(0.25))
                         Spacer()
                         Button {
@@ -84,18 +84,18 @@ struct ClaudeInstancesView: View {
             // Header
             HStack {
                 Text(buddy.rarity.stars)
-                    .font(.system(size: 9))
+                    .font(.system(size: 11))
                     .foregroundColor(buddy.rarity.color)
                 Text(buddy.rarity.displayName.uppercased())
-                    .font(.system(size: 8, weight: .bold, design: .monospaced))
+                    .font(.system(size: 11, weight: .bold, design: .monospaced))
                     .foregroundColor(buddy.rarity.color)
                 Spacer()
                 Text(buddy.species.rawValue.uppercased())
-                    .font(.system(size: 8, weight: .medium, design: .monospaced))
+                    .font(.system(size: 11, weight: .medium, design: .monospaced))
                     .foregroundColor(.white.opacity(0.3))
                 if buddy.isShiny {
                     Text("✨")
-                        .font(.system(size: 8))
+                        .font(.system(size: 11))
                 }
             }
             .padding(.horizontal, 10)
@@ -138,7 +138,7 @@ struct ClaudeInstancesView: View {
                 }
             } label: {
                 Text(L10n.back)
-                    .font(.system(size: 9, weight: .medium))
+                    .font(.system(size: 11, weight: .medium))
                     .foregroundColor(.white.opacity(0.4))
                     .padding(.horizontal, 14)
                     .padding(.vertical, 3)
@@ -157,16 +157,16 @@ struct ClaudeInstancesView: View {
 
         return HStack(spacing: 3) {
             Text(label)
-                .font(.system(size: 9, weight: .medium, design: .monospaced))
+                .font(.system(size: 11, weight: .medium, design: .monospaced))
                 .foregroundColor(.white.opacity(0.35))
-                .frame(width: 26, alignment: .trailing)
+                .frame(width: 30, alignment: .trailing)
             Text("[\(bar)]")
-                .font(.system(size: 9, design: .monospaced))
+                .font(.system(size: 11, design: .monospaced))
                 .foregroundColor(color.opacity(0.7))
             Text("\(value)")
-                .font(.system(size: 9, design: .monospaced))
+                .font(.system(size: 11, design: .monospaced))
                 .foregroundColor(color.opacity(0.5))
-                .frame(width: 22, alignment: .trailing)
+                .frame(width: 24, alignment: .trailing)
         }
     }
 
@@ -420,7 +420,7 @@ struct InstanceRow: View {
                         // Status badge
                         if let badge = statusBadge {
                             Text(badge.text)
-                                .font(.system(size: 8, weight: .semibold))
+                                .font(.system(size: 11, weight: .semibold))
                                 .foregroundColor(badge.color)
                                 .padding(.horizontal, 5)
                                 .padding(.vertical, 2)
@@ -433,14 +433,14 @@ struct InstanceRow: View {
 
                         // Terminal tag
                         Text(terminalTag)
-                            .font(.system(size: 8, weight: .medium, design: .monospaced))
+                            .font(.system(size: 11, weight: .medium, design: .monospaced))
                             .foregroundColor(.white.opacity(0.35))
                             .padding(.horizontal, 4)
                             .padding(.vertical, 1)
                             .background(RoundedRectangle(cornerRadius: 3).fill(Color.white.opacity(0.06)))
 
                         Text(durationText)
-                            .font(.system(size: 10))
+                            .font(.system(size: 11))
                             .foregroundColor(.white.opacity(0.3))
                     }
 
@@ -453,7 +453,7 @@ struct InstanceRow: View {
                     onFocus()
                 } label: {
                     Image(systemName: "terminal")
-                        .font(.system(size: 10))
+                        .font(.system(size: 12))
                         .foregroundColor(isHovered ? Color(red: 1.0, green: 0.84, blue: 0.25) : .white.opacity(0.3))
                         .frame(width: 22, height: 22)
                         .background(Circle().fill(isHovered ? Color(red: 1.0, green: 0.84, blue: 0.25).opacity(0.12) : Color.white.opacity(0.06)))
@@ -612,12 +612,12 @@ struct ProjectGroupHeader: View {
                     .frame(width: 12)
 
                 Text(group.name)
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.system(size: 13, weight: .semibold))
                     .foregroundColor(.white.opacity(0.8))
 
                 if group.activeCount > 0 {
                     Text("\(group.activeCount) \(L10n.active)")
-                        .font(.system(size: 10, weight: .medium))
+                        .font(.system(size: 11, weight: .medium))
                         .foregroundColor(.white.opacity(0.6))
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
@@ -627,7 +627,7 @@ struct ProjectGroupHeader: View {
                         )
                 } else if group.isArchivable {
                     Text(L10n.archived)
-                        .font(.system(size: 10, weight: .medium))
+                        .font(.system(size: 11, weight: .medium))
                         .foregroundColor(.white.opacity(0.35))
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
@@ -729,7 +729,7 @@ struct IconButton: View {
             action()
         } label: {
             Image(systemName: icon)
-                .font(.system(size: 11, weight: .medium))
+                .font(.system(size: 12, weight: .medium))
                 .foregroundColor(isHovered ? .white.opacity(0.8) : .white.opacity(0.4))
                 .frame(width: 24, height: 24)
                 .background(
@@ -756,9 +756,9 @@ struct CompactTerminalButton: View {
         } label: {
             HStack(spacing: 2) {
                 Image(systemName: "terminal")
-                    .font(.system(size: 8, weight: .medium))
+                    .font(.system(size: 12, weight: .medium))
                 Text(L10n.goToTerminal)
-                    .font(.system(size: 10, weight: .medium))
+                    .font(.system(size: 13, weight: .medium))
             }
             .foregroundColor(isEnabled ? .white.opacity(0.9) : .white.opacity(0.3))
             .padding(.horizontal, 6)
@@ -784,9 +784,9 @@ struct TerminalButton: View {
         } label: {
             HStack(spacing: 3) {
                 Image(systemName: "terminal")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.system(size: 12, weight: .medium))
                 Text(L10n.terminal)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.system(size: 13, weight: .medium))
             }
             .foregroundColor(isEnabled ? .black : .white.opacity(0.4))
             .padding(.horizontal, 10)

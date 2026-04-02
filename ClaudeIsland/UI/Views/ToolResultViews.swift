@@ -139,7 +139,7 @@ struct EditResultContent: View {
 
             if result.userModified {
                 Text(L10n.userModified)
-                    .font(.system(size: 10))
+                    .font(.system(size: 11))
                     .foregroundColor(.orange.opacity(0.7))
             }
         }
@@ -184,9 +184,9 @@ struct BashResultContent: View {
             if let bgId = result.backgroundTaskId {
                 HStack(spacing: 4) {
                     Image(systemName: "clock.arrow.circlepath")
-                        .font(.system(size: 10))
+                        .font(.system(size: 11))
                     Text(L10n.backgroundTask(bgId))
-                        .font(.system(size: 10, design: .monospaced))
+                        .font(.system(size: 11, design: .monospaced))
                 }
                 .foregroundColor(.blue.opacity(0.7))
             }
@@ -207,7 +207,7 @@ struct BashResultContent: View {
             if !result.stderr.isEmpty {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(L10n.stderrLabel)
-                        .font(.system(size: 10, weight: .medium))
+                        .font(.system(size: 11, weight: .medium))
                         .foregroundColor(.red.opacity(0.7))
                     Text(result.stderr)
                         .font(.system(size: 11, design: .monospaced))
@@ -279,7 +279,7 @@ struct GlobResultContent: View {
 
                 if result.truncated {
                     Text(L10n.moreTruncated)
-                        .font(.system(size: 10))
+                        .font(.system(size: 11))
                         .foregroundColor(.white.opacity(0.3))
                 }
             }
@@ -298,7 +298,7 @@ struct TodoWriteResultContent: View {
                 HStack(spacing: 6) {
                     // Status icon
                     Image(systemName: todoIcon(for: todo.status))
-                        .font(.system(size: 10))
+                        .font(.system(size: 11))
                         .foregroundColor(todoColor(for: todo.status))
                         .frame(width: 12)
 
@@ -344,13 +344,13 @@ struct TaskResultContent: View {
 
                 if let duration = result.totalDurationMs {
                     Text("\(formatDuration(duration))")
-                        .font(.system(size: 10, design: .monospaced))
+                        .font(.system(size: 11, design: .monospaced))
                         .foregroundColor(.white.opacity(0.4))
                 }
 
                 if let tools = result.totalToolUseCount {
                     Text(L10n.tools(tools))
-                        .font(.system(size: 10, design: .monospaced))
+                        .font(.system(size: 11, design: .monospaced))
                         .foregroundColor(.white.opacity(0.4))
                 }
             }
@@ -394,11 +394,11 @@ struct WebFetchResultContent: View {
             // URL and status
             HStack(spacing: 6) {
                 Text("\(result.code)")
-                    .font(.system(size: 10, weight: .medium, design: .monospaced))
+                    .font(.system(size: 11, weight: .medium, design: .monospaced))
                     .foregroundColor(result.code < 400 ? .green.opacity(0.7) : .red.opacity(0.7))
 
                 Text(truncateUrl(result.url))
-                    .font(.system(size: 10, design: .monospaced))
+                    .font(.system(size: 11, design: .monospaced))
                     .foregroundColor(.white.opacity(0.5))
                     .lineLimit(1)
             }
@@ -442,7 +442,7 @@ struct WebSearchResultContent: View {
 
                         if !item.snippet.isEmpty {
                             Text(item.snippet)
-                                .font(.system(size: 10))
+                                .font(.system(size: 11))
                                 .foregroundColor(.white.opacity(0.5))
                                 .lineLimit(2)
                         }
@@ -451,7 +451,7 @@ struct WebSearchResultContent: View {
 
                 if result.results.count > 5 {
                     Text(L10n.moreResults(result.results.count - 5))
-                        .font(.system(size: 10))
+                        .font(.system(size: 11))
                         .foregroundColor(.white.opacity(0.3))
                 }
             }
@@ -477,7 +477,7 @@ struct AskUserQuestionResultContent: View {
                     if let answer = result.answers["\(index)"] {
                         HStack(spacing: 4) {
                             Image(systemName: "arrow.turn.down.right")
-                                .font(.system(size: 9))
+                                .font(.system(size: 11))
                             Text(answer)
                                 .font(.system(size: 11, weight: .medium))
                         }
@@ -499,12 +499,12 @@ struct BashOutputResultContent: View {
             // Status
             HStack(spacing: 6) {
                 Text(L10n.status(result.status))
-                    .font(.system(size: 10, design: .monospaced))
+                    .font(.system(size: 11, design: .monospaced))
                     .foregroundColor(.white.opacity(0.5))
 
                 if let exitCode = result.exitCode {
                     Text(L10n.exitCode(exitCode))
-                        .font(.system(size: 10, design: .monospaced))
+                        .font(.system(size: 11, design: .monospaced))
                         .foregroundColor(exitCode == 0 ? .green.opacity(0.6) : .red.opacity(0.6))
                 }
             }
@@ -552,7 +552,7 @@ struct ExitPlanModeResultContent: View {
             if let path = result.filePath {
                 HStack(spacing: 4) {
                     Image(systemName: "doc.text")
-                        .font(.system(size: 10))
+                        .font(.system(size: 11))
                     Text(URL(fileURLWithPath: path).lastPathComponent)
                         .font(.system(size: 11, design: .monospaced))
                 }
@@ -579,9 +579,9 @@ struct MCPResultContent: View {
             // Server and tool info (formatted as Title Case)
             HStack(spacing: 4) {
                 Image(systemName: "puzzlepiece")
-                    .font(.system(size: 10))
+                    .font(.system(size: 11))
                 Text("\(MCPToolFormatter.toTitleCase(result.serverName)) - \(MCPToolFormatter.toTitleCase(result.toolName))")
-                    .font(.system(size: 10, design: .monospaced))
+                    .font(.system(size: 11, design: .monospaced))
             }
             .foregroundColor(.purple.opacity(0.7))
 
@@ -589,10 +589,10 @@ struct MCPResultContent: View {
             ForEach(Array(result.rawResult.prefix(5)), id: \.key) { key, value in
                 HStack(alignment: .top, spacing: 4) {
                     Text("\(key):")
-                        .font(.system(size: 10, design: .monospaced))
+                        .font(.system(size: 11, design: .monospaced))
                         .foregroundColor(.white.opacity(0.4))
                     Text("\(String(describing: value).prefix(100))")
-                        .font(.system(size: 10, design: .monospaced))
+                        .font(.system(size: 11, design: .monospaced))
                         .foregroundColor(.white.opacity(0.6))
                         .lineLimit(2)
                 }
@@ -659,7 +659,7 @@ struct FileCodeView: View {
             // Filename header
             HStack(spacing: 6) {
                 Image(systemName: "doc.text")
-                    .font(.system(size: 10))
+                    .font(.system(size: 11))
                     .foregroundColor(.white.opacity(0.4))
                 Text(filename)
                     .font(.system(size: 11, weight: .medium, design: .monospaced))
@@ -674,7 +674,7 @@ struct FileCodeView: View {
             // Top overflow indicator
             if hasLinesBefore {
                 Text("...")
-                    .font(.system(size: 10, design: .monospaced))
+                    .font(.system(size: 11, design: .monospaced))
                     .foregroundColor(.white.opacity(0.3))
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.leading, 46)
@@ -696,7 +696,7 @@ struct FileCodeView: View {
             // Bottom overflow indicator
             if hasMoreAfter {
                 Text(L10n.moreLines(lines.count - maxLines))
-                    .font(.system(size: 10, design: .monospaced))
+                    .font(.system(size: 11, design: .monospaced))
                     .foregroundColor(.white.opacity(0.3))
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.leading, 46)
@@ -716,7 +716,7 @@ struct FileCodeView: View {
             HStack(spacing: 0) {
                 // Line number
                 Text("\(lineNumber)")
-                    .font(.system(size: 10, design: .monospaced))
+                    .font(.system(size: 11, design: .monospaced))
                     .foregroundColor(.white.opacity(0.3))
                     .frame(width: 28, alignment: .trailing)
                     .padding(.trailing, 8)
@@ -754,7 +754,7 @@ struct CodePreview: View {
 
             if hasMore {
                 Text(L10n.moreLines(lines.count - maxLines))
-                    .font(.system(size: 10, design: .monospaced))
+                    .font(.system(size: 11, design: .monospaced))
                     .foregroundColor(.white.opacity(0.3))
                     .padding(.top, 2)
             }
@@ -771,7 +771,7 @@ struct FileListView: View {
             ForEach(Array(files.prefix(limit).enumerated()), id: \.offset) { _, file in
                 HStack(spacing: 4) {
                     Image(systemName: "doc")
-                        .font(.system(size: 9))
+                        .font(.system(size: 11))
                         .foregroundColor(.white.opacity(0.3))
                     Text(URL(fileURLWithPath: file).lastPathComponent)
                         .font(.system(size: 11, design: .monospaced))
@@ -782,7 +782,7 @@ struct FileListView: View {
 
             if files.count > limit {
                 Text(L10n.moreFiles(files.count - limit))
-                    .font(.system(size: 10))
+                    .font(.system(size: 11))
                     .foregroundColor(.white.opacity(0.3))
             }
         }
@@ -798,7 +798,7 @@ struct DiffView: View {
                 VStack(alignment: .leading, spacing: 1) {
                     // Hunk header
                     Text("@@ -\(patch.oldStart),\(patch.oldLines) +\(patch.newStart),\(patch.newLines) @@")
-                        .font(.system(size: 10, design: .monospaced))
+                        .font(.system(size: 11, design: .monospaced))
                         .foregroundColor(.cyan.opacity(0.7))
 
                     // Lines
@@ -808,7 +808,7 @@ struct DiffView: View {
 
                     if patch.lines.count > 10 {
                         Text(L10n.moreLines(patch.lines.count - 10))
-                            .font(.system(size: 10, design: .monospaced))
+                            .font(.system(size: 11, design: .monospaced))
                             .foregroundColor(.white.opacity(0.3))
                     }
                 }
@@ -816,7 +816,7 @@ struct DiffView: View {
 
             if patches.count > 3 {
                 Text(L10n.moreHunks(patches.count - 3))
-                    .font(.system(size: 10))
+                    .font(.system(size: 11))
                     .foregroundColor(.white.opacity(0.3))
             }
         }
@@ -967,7 +967,7 @@ struct SimpleDiffView: View {
             if let name = filename {
                 HStack(spacing: 6) {
                     Image(systemName: "doc.text")
-                        .font(.system(size: 10))
+                        .font(.system(size: 11))
                         .foregroundColor(.white.opacity(0.4))
                     Text(name)
                         .font(.system(size: 11, weight: .medium, design: .monospaced))
@@ -983,7 +983,7 @@ struct SimpleDiffView: View {
             // Top overflow indicator
             if hasLinesBefore {
                 Text("...")
-                    .font(.system(size: 10, design: .monospaced))
+                    .font(.system(size: 11, design: .monospaced))
                     .foregroundColor(.white.opacity(0.3))
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.leading, 46)
@@ -1008,7 +1008,7 @@ struct SimpleDiffView: View {
             // Bottom overflow indicator
             if hasMoreChanges {
                 Text("...")
-                    .font(.system(size: 10, design: .monospaced))
+                    .font(.system(size: 11, design: .monospaced))
                     .foregroundColor(.white.opacity(0.3))
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.leading, 46)
@@ -1047,7 +1047,7 @@ struct SimpleDiffView: View {
             HStack(spacing: 0) {
                 // Line number
                 Text("\(lineNumber)")
-                    .font(.system(size: 10, design: .monospaced))
+                    .font(.system(size: 11, design: .monospaced))
                     .foregroundColor(type.textColor.opacity(0.6))
                     .frame(width: 28, alignment: .trailing)
                     .padding(.trailing, 4)

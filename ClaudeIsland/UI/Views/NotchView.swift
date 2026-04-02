@@ -569,32 +569,32 @@ struct CollapsedNotchContent: View {
                 // Pulsing status dot
                 Circle()
                     .fill(statusDotColor)
-                    .frame(width: 6, height: 6)
+                    .frame(width: 8, height: 8)
                     .shadow(color: statusDotColor.opacity(0.6), radius: 4)
                     .opacity(pulsePhase ? 1.0 : 0.4)
 
                 // Buddy icon
                 if usePixelCat {
                     PixelCharacterView(state: mostUrgentState)
-                        .scaleEffect(0.22)
-                        .frame(width: 12, height: 12)
+                        .scaleEffect(0.28)
+                        .frame(width: 16, height: 16)
                         .matchedGeometryEffect(id: "crab", in: activityNamespace, isSource: true)
                 } else if let buddy = buddyReader.buddy {
                     EmojiPixelView(emoji: buddy.species.emoji, style: .wave)
-                        .scaleEffect(0.24)
-                        .frame(width: 12, height: 12)
+                        .scaleEffect(0.30)
+                        .frame(width: 16, height: 16)
                         .matchedGeometryEffect(id: "crab", in: activityNamespace, isSource: true)
                 } else {
                     PixelCharacterView(state: mostUrgentState)
-                        .scaleEffect(0.22)
-                        .frame(width: 12, height: 12)
+                        .scaleEffect(0.28)
+                        .frame(width: 16, height: 16)
                         .matchedGeometryEffect(id: "crab", in: activityNamespace, isSource: true)
                 }
 
                 // Status text
                 if let parts = activityTextParts {
                     Text(parts.status)
-                        .font(.system(size: 9, weight: .bold, design: .monospaced))
+                        .font(.system(size: 13, weight: .bold, design: .monospaced))
                         .foregroundStyle(statusGradient)
                         .lineLimit(1)
                         .fixedSize()
@@ -608,7 +608,7 @@ struct CollapsedNotchContent: View {
             HStack(spacing: 4) {
                 if let parts = activityTextParts {
                     Text(parts.project)
-                        .font(.system(size: 9, weight: .bold, design: .monospaced))
+                        .font(.system(size: 13, weight: .bold, design: .monospaced))
                         .foregroundColor(.white.opacity(0.6))
                         .lineLimit(1)
                         .fixedSize()
@@ -616,7 +616,7 @@ struct CollapsedNotchContent: View {
 
                 if activeSessionCount > 0 {
                     Text("×\(activeSessionCount)")
-                        .font(.system(size: 9, weight: .bold, design: .monospaced))
+                        .font(.system(size: 13, weight: .bold, design: .monospaced))
                         .foregroundColor(badgeColor)
                 }
             }
@@ -693,7 +693,7 @@ struct CollapsedNotchContent: View {
 
             if showOverflow {
                 Text("+\(totalActive - 7)")
-                    .font(.system(size: 7, weight: .medium, design: .monospaced))
+                    .font(.system(size: 11, weight: .medium, design: .monospaced))
                     .foregroundColor(.white.opacity(0.5))
                     .padding(.leading, 1)
             }
@@ -721,7 +721,7 @@ struct ScrollingTextView: View {
             let availableWidth = geo.size.width
 
             Text(text)
-                .font(.system(size: 10, weight: .regular, design: .monospaced))
+                .font(.system(size: 13, weight: .regular, design: .monospaced))
                 .foregroundColor(.white.opacity(0.5))
                 .lineLimit(1)
                 .fixedSize()
