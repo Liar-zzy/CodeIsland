@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react"
 import { Download } from "lucide-react"
+import logo from "../lib/logo"
 
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false)
@@ -20,7 +21,7 @@ export default function Navbar() {
     >
       <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
         <a href="#" className="flex items-center gap-2 group">
-          <img src="/logo.png" alt="CodeIsland" className="w-6 h-6 rounded group-hover:scale-110 transition-transform" />
+          <img src={logo} alt="CodeIsland" className="w-6 h-6 rounded group-hover:scale-110 transition-transform" />
           <span className="font-mono text-sm font-bold text-text-primary tracking-[0.15em]">
             CODEISLAND
           </span>

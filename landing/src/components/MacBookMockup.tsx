@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react"
 import { motion, AnimatePresence } from "motion/react"
+import logo from "../lib/logo"
 
 /**
  * A high-fidelity CSS-only MacBook screen mockup showing CodeIsland's notch UI
@@ -90,7 +91,7 @@ export default function MacBookMockup() {
                       className="bg-black rounded-b-2xl px-3 py-1 flex items-center gap-2 overflow-hidden"
                       style={{ minHeight: 28 }}
                     >
-                      <img src="/logo.png" alt="" className="w-4 h-4 rounded-sm shrink-0" />
+                      <img src={logo} alt="" className="w-4 h-4 rounded-sm shrink-0" />
                       <span className="font-mono text-[9px] text-white/70 whitespace-nowrap">myproject</span>
                       <span className="ml-auto flex items-center gap-1">
                         <span className="w-1.5 h-1.5 rounded-full bg-green" style={{ boxShadow: '0 0 4px rgba(52,211,153,0.6)' }} />

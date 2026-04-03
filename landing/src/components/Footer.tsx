@@ -1,4 +1,5 @@
 import { Heart } from "lucide-react"
+import logo from "../lib/logo"
 
 const GithubIcon = ({ size = 16 }: { size?: number }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
@@ -17,7 +18,7 @@ export default function Footer() {
     <footer className="relative py-10 px-6 border-t border-white/[0.04]">
       <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-6">
         <a href="#" className="flex items-center gap-2">
-          <img src="/logo.png" alt="CodeIsland" className="w-5 h-5 rounded" />
+          <img src={logo} alt="CodeIsland" className="w-5 h-5 rounded" />
           <span className="font-mono text-xs font-bold text-text-muted tracking-[0.15em]">CODEISLAND</span>
           <span className="text-text-muted/40 mx-1">·</span>
           <span className="font-mono text-xs text-text-muted/60">MIT License</span>

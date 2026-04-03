@@ -1,6 +1,7 @@
 import { motion } from "motion/react"
 import { Apple } from "lucide-react"
 import MacBookMockup from "./MacBookMockup"
+import logo from "../lib/logo"
 
 const GithubIcon = ({ size = 16 }: { size?: number }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
@@ -29,7 +30,7 @@ export default function Hero() {
         <div className="text-center mb-12" style={{ animation: 'heroEnter 1s ease-out both' }}>
           {/* Logo */}
           <div className="flex items-center justify-center gap-3 mb-6">
-            <img src="/logo.png" alt="CodeIsland" className="w-10 h-10 rounded-lg" />
+            <img src={logo} alt="CodeIsland" className="w-10 h-10 rounded-lg" />
           </div>
 
           <h1 className="font-display text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-extrabold tracking-tight leading-[0.95]">

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react"
 import { motion, AnimatePresence } from "motion/react"
 import { LayoutGrid, ShieldCheck, MessageSquare, ArrowRight } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
+import logo from "../lib/logo"
 
 type DemoState = "monitor" | "approve" | "ask" | "jump"
 
@@ -147,7 +148,7 @@ export default function NotchDemo() {
               {/* Notch bar */}
               <div className="flex items-center justify-between mb-4 pb-3 border-b border-white/[0.05]">
                 <div className="flex items-center gap-2">
-                  <img src="/logo.png" alt="" className="w-6 h-6 rounded-sm" />
+                  <img src={logo} alt="" className="w-6 h-6 rounded-sm" />
                   <span className="font-mono text-xs text-text-secondary">myproject</span>
                 </div>
                 <div className="flex items-center gap-1.5">
