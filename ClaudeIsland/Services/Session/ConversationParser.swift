@@ -15,6 +15,7 @@ struct ConversationInfo: Equatable {
     let lastMessageRole: String?  // "user", "assistant", or "tool"
     let lastToolName: String?  // Tool name if lastMessageRole is "tool"
     let firstUserMessage: String?  // Fallback title when no summary
+    let latestUserMessage: String?  // Most recent user text message
     let lastUserMessageDate: Date?  // Timestamp of last user message (for stable sorting)
 }
 
@@ -72,14 +73,13 @@ actor ConversationParser {
     /// Parse a JSONL file to extract conversation info
     /// Uses caching based on file modification time
     func parse(sessionId: String, cwd: String) -> ConversationInfo {
-        let projectDir = cwd.replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ".", with: "-")
-        let sessionFile = NSHomeDirectory() + "/.claude/projects/" + projectDir + "/" + sessionId + ".jsonl"
+        let sessionFile = Self.sessionFilePath(sessionId: sessionId, cwd: cwd)
 
         let fileManager = FileManager.default
         guard fileManager.fileExists(atPath: sessionFile),
               let attrs = try? fileManager.attributesOfItem(atPath: sessionFile),
               let modDate = attrs[.modificationDate] as? Date else {
-            return ConversationInfo(summary: nil, lastMessage: nil, lastMessageRole: nil, lastToolName: nil, firstUserMessage: nil, lastUserMessageDate: nil)
+            return ConversationInfo(summary: nil, lastMessage: nil, lastMessageRole: nil, lastToolName: nil, firstUserMessage: nil, latestUserMessage: nil, lastUserMessageDate: nil)
         }
 
         if let cached = cache[sessionFile], cached.modificationDate == modDate {
@@ -88,7 +88,7 @@ actor ConversationParser {
 
         guard let data = fileManager.contents(atPath: sessionFile),
               let content = String(data: data, encoding: .utf8) else {
-            return ConversationInfo(summary: nil, lastMessage: nil, lastMessageRole: nil, lastToolName: nil, firstUserMessage: nil, lastUserMessageDate: nil)
+            return ConversationInfo(summary: nil, lastMessage: nil, lastMessageRole: nil, lastToolName: nil, firstUserMessage: nil, latestUserMessage: nil, lastUserMessageDate: nil)
         }
 
         let info = parseContent(content)
@@ -99,13 +99,19 @@ actor ConversationParser {
 
     /// Parse JSONL content
     private func parseContent(_ content: String) -> ConversationInfo {
-        let lines = content.components(separatedBy: "\n").filter { !$0.isEmpty }
+        var lines = content.components(separatedBy: "\n").filter { !$0.isEmpty }
+
+        // Find last /clear and only use lines after it
+        if let lastClearIdx = lines.lastIndex(where: { $0.contains("<command-name>/clear</command-name>") }) {
+            lines = Array(lines.suffix(from: lines.index(after: lastClearIdx)))
+        }
 
         var summary: String?
         var lastMessage: String?
         var lastMessageRole: String?
         var lastToolName: String?
         var firstUserMessage: String?
+        var latestUserMessage: String?
         var lastUserMessageDate: Date?
 
         let formatter = ISO8601DateFormatter()
@@ -189,22 +195,23 @@ actor ConversationParser {
             if !foundLastUserMessage && type == "user" {
                 let isMeta = json["isMeta"] as? Bool ?? false
                 if !isMeta, let message = json["message"] as? [String: Any] {
-                    var hasUserText = false
+                    var userText: String?
                     if let msgContent = message["content"] as? String {
                         if !msgContent.hasPrefix("<command-name>") && !msgContent.hasPrefix("<local-command") && !msgContent.hasPrefix("Caveat:") {
-                            hasUserText = true
+                            userText = msgContent
                         }
                     } else if let contentArray = message["content"] as? [[String: Any]] {
                         for block in contentArray {
                             if let blockType = block["type"] as? String, blockType == "text",
                                let text = block["text"] as? String,
                                !text.hasPrefix("<command-name>") && !text.hasPrefix("<local-command") && !text.hasPrefix("Caveat:") {
-                                hasUserText = true
+                                userText = text
                                 break
                             }
                         }
                     }
-                    if hasUserText {
+                    if let text = userText {
+                        latestUserMessage = Self.truncateMessage(text, maxLength: 60)
                         if let timestampStr = json["timestamp"] as? String {
                             lastUserMessageDate = formatter.date(from: timestampStr)
                         }
@@ -228,6 +235,7 @@ actor ConversationParser {
             lastMessageRole: lastMessageRole,
             lastToolName: lastToolName,
             firstUserMessage: firstUserMessage,
+            latestUserMessage: latestUserMessage,
             lastUserMessageDate: lastUserMessageDate
         )
     }
@@ -365,7 +373,7 @@ actor ConversationParser {
         }
 
         if fileSize == state.lastFileOffset {
-            return state.messages
+            return []
         }
 
         do {
@@ -392,6 +400,7 @@ actor ConversationParser {
                 state.completedToolIds = []
                 state.toolResults = [:]
                 state.structuredResults = [:]
+                newMessages = []  // Reset new messages on /clear too
 
                 if isIncrementalRead {
                     state.clearPending = true
@@ -449,6 +458,8 @@ actor ConversationParser {
             }
         }
 
+        DebugLogger.log("Parser", "Parsed \(lines.count) lines → \(newMessages.count) new msgs, total=\(state.messages.count) completedTools=\(state.completedToolIds.count)")
+
         state.lastFileOffset = fileSize
         return newMessages
     }
@@ -484,10 +495,25 @@ actor ConversationParser {
         return true
     }
 
-    /// Build session file path
+    /// Build session file path, walking up parent directories if needed
     private static func sessionFilePath(sessionId: String, cwd: String) -> String {
+        let home = NSHomeDirectory()
+        let fm = FileManager.default
+        var dir = cwd
+
+        // Try cwd and each parent directory until we find the JSONL
+        while dir.count > 1 {
+            let projectDir = dir.replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ".", with: "-")
+            let path = home + "/.claude/projects/" + projectDir + "/" + sessionId + ".jsonl"
+            if fm.fileExists(atPath: path) {
+                return path
+            }
+            dir = (dir as NSString).deletingLastPathComponent
+        }
+
+        // Fallback to original cwd-based path
         let projectDir = cwd.replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ".", with: "-")
-        return NSHomeDirectory() + "/.claude/projects/" + projectDir + "/" + sessionId + ".jsonl"
+        return home + "/.claude/projects/" + projectDir + "/" + sessionId + ".jsonl"
     }
 
     private func parseMessageLine(_ json: [String: Any], seenToolIds: inout Set<String>, toolIdToName: inout [String: String]) -> ChatMessage? {

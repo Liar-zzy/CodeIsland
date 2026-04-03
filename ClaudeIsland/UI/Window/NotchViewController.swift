@@ -17,9 +17,13 @@ class PassThroughHostingView<Content: View>: NSHostingView<Content> {
         if isOpened() {
             return super.hitTest(point)
         }
-        // When closed, only accept hits in the notch area (top center)
-        let result = super.hitTest(point)
-        return result
+        // When closed, accept clicks in the top band (notch height)
+        // so the left/right wings are clickable even on transparent areas
+        // NotchViewModel.handleMouseDown does the precise geometry check
+        if point.y >= bounds.height - 44 {
+            return self
+        }
+        return nil
     }
 }
 

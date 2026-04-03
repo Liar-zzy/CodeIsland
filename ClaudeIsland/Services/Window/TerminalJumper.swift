@@ -20,6 +20,7 @@ actor TerminalJumper {
         let cwd = session.cwd
         let pid = session.pid
         let terminalApp = session.terminalApp ?? ""
+        DebugLogger.log("Jump", "termApp=\(terminalApp) cwd=\(cwd) sid=\(session.sessionId.prefix(8))")
 
         // 1. Tmux + Yabai (most precise for tmux sessions)
         if session.isInTmux {
@@ -45,7 +46,7 @@ actor TerminalJumper {
         }
 
         if lower.contains("cmux") {
-            if await jumpViaCmux(cwd: cwd) { return true }
+            if await jumpViaCmux(cwd: cwd, sessionId: session.sessionId) { return true }
         }
 
         if lower.contains("ghostty") {
@@ -74,7 +75,7 @@ actor TerminalJumper {
 
         // 3. If terminal app unknown OR all specific strategies failed,
         //    try common AppleScript terminals in order
-        if await jumpViaCmux(cwd: cwd) { return true }
+        if await jumpViaCmux(cwd: cwd, sessionId: session.sessionId) { return true }
         if await jumpViaGhostty(cwd: cwd) { return true }
         if await jumpViaiTerm2(cwd: cwd, pid: pid) { return true }
         if await jumpViaTerminalApp(cwd: cwd, pid: pid) { return true }
@@ -149,26 +150,39 @@ actor TerminalJumper {
         return await runAppleScript(script)
     }
 
-    // MARK: - cmux (AppleScript)
+    // MARK: - cmux (CLI)
 
-    private func jumpViaCmux(cwd: String) async -> Bool {
-        let script = """
-        tell application "System Events"
-            if not (exists process "cmux") then return false
-        end tell
-        tell application "cmux"
-            set allTerms to terminals
-            repeat with t in allTerms
-                if working directory of t contains "\(cwd)" then
-                    focus t
-                    return true
-                end if
-            end repeat
-            activate
-            return true
-        end tell
-        """
-        return await runAppleScript(script)
+    private func jumpViaCmux(cwd: String, sessionId: String? = nil) async -> Bool {
+        let cmuxPath = "/Applications/cmux.app/Contents/Resources/bin/cmux"
+        guard FileManager.default.isExecutableFile(atPath: cmuxPath) else { return false }
+
+        // Use cmux find-window --content --select to search and jump in one command
+        let dirName = URL(fileURLWithPath: cwd).lastPathComponent
+
+        let process = Process()
+        let pipe = Pipe()
+        process.executableURL = URL(fileURLWithPath: cmuxPath)
+        process.arguments = ["find-window", "--content", "--select", dirName]
+        process.standardOutput = pipe
+        process.standardError = FileHandle.nullDevice
+
+        do {
+            try process.run()
+            let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            process.waitUntilExit()
+
+            if process.terminationStatus == 0,
+               let output = String(data: data, encoding: .utf8),
+               output.contains("workspace:") {
+                DebugLogger.log("Jump", "cmux matched: \(output.prefix(60))")
+                await bringCmuxToFront()
+                return true
+            }
+        } catch {}
+
+        DebugLogger.log("Jump", "cmux no match for '\(dirName)'")
+        await bringCmuxToFront()
+        return true
     }
 
     // MARK: - Ghostty (AppleScript)
@@ -268,6 +282,13 @@ actor TerminalJumper {
     private func activateApp(_ name: String) async -> Bool {
         let script = "tell application \"\(name)\" to activate"
         return await runAppleScript(script)
+    }
+
+    // MARK: - cmux Activation
+
+    private func bringCmuxToFront() async {
+        // Use AppleScript to ensure cmux is frontmost
+        _ = await runAppleScript("tell application \"cmux\" to activate")
     }
 
     // MARK: - AppleScript Runner

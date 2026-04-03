@@ -37,9 +37,23 @@ struct NotchGeometry: Sendable {
         )
     }
 
-    /// Check if a point is in the notch area (with padding for easier interaction)
+    /// Extra width for Dynamic Island expansion wings (must match NotchView.expansionWidth)
+    var expansionWidth: CGFloat = 240
+
+    /// The collapsed content rect including wings (notch + expansion on both sides)
+    var collapsedScreenRect: CGRect {
+        let totalWidth = deviceNotchRect.width + expansionWidth
+        return CGRect(
+            x: screenRect.midX - totalWidth / 2,
+            y: screenRect.maxY - deviceNotchRect.height,
+            width: totalWidth,
+            height: deviceNotchRect.height
+        )
+    }
+
+    /// Check if a point is in the clickable notch area (including expanded wings)
     func isPointInNotch(_ point: CGPoint) -> Bool {
-        notchScreenRect.insetBy(dx: -10, dy: -5).contains(point)
+        collapsedScreenRect.insetBy(dx: -10, dy: -5).contains(point)
     }
 
     /// Check if a point is in the opened panel area

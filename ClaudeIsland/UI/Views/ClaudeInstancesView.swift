@@ -232,8 +232,6 @@ struct ClaudeInstancesView: View {
                         onApprove: { approveSession(session) },
                         onReject: { rejectSession(session) }
                     )
-                    .contentShape(Rectangle())
-                    .onTapGesture { openChat(session) }
                     .id(session.stableId)
 
                     // Gradient divider between rows
@@ -290,8 +288,6 @@ struct ClaudeInstancesView: View {
                                 onApprove: { approveSession(session) },
                                 onReject: { rejectSession(session) }
                             )
-                            .contentShape(Rectangle())
-                            .onTapGesture { openChat(session) }
                             .id(session.stableId)
                         }
                     }
@@ -394,15 +390,43 @@ struct InstanceRow: View {
         return "\(session.projectName) \u{00B7} \(display)"
     }
 
+    @ObservedObject private var buddyReader = BuddyReader.shared
+    @AppStorage("usePixelCat") private var usePixelCat: Bool = false
+
+    /// Animation state derived from session phase
+    private var animationState: AnimationState {
+        switch session.phase {
+        case .processing, .compacting: return .working
+        case .waitingForApproval: return .needsYou
+        case .waitingForInput: return .done
+        case .idle, .ended: return .idle
+        }
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             HStack(alignment: .top, spacing: 6) {
-                // Status dot with glow
-                Circle()
-                    .fill(accentColor)
-                    .frame(width: 6, height: 6)
-                    .shadow(color: accentColor.opacity(0.6), radius: 3, x: 0, y: 0)
-                    .padding(.top, 5)
+                // Buddy icon or pixel cat
+                ZStack {
+                    if usePixelCat {
+                        PixelCharacterView(state: animationState)
+                            .scaleEffect(0.35)
+                    } else if let buddy = buddyReader.buddy {
+                        EmojiPixelView(emoji: buddy.species.emoji, style: .rock)
+                            .scaleEffect(0.35)
+                    } else {
+                        PixelCharacterView(state: animationState)
+                            .scaleEffect(0.35)
+                    }
+                    // Status dot overlay
+                    Circle()
+                        .fill(accentColor)
+                        .frame(width: 5, height: 5)
+                        .shadow(color: accentColor.opacity(0.6), radius: 2)
+                        .offset(x: 8, y: 8)
+                }
+                .frame(width: 22, height: 22)
+                .padding(.top, 2)
 
                 // Content
                 VStack(alignment: .leading, spacing: 3) {
@@ -415,17 +439,7 @@ struct InstanceRow: View {
 
                         Spacer(minLength: 0)
 
-                        // "Claude" blue pill tag
-                        Text("Claude")
-                            .font(.system(size: 8, weight: .semibold))
-                            .foregroundColor(Self.claudeTagFg)
-                            .padding(.horizontal, 5)
-                            .padding(.vertical, 2)
-                            .background(
-                                Capsule().fill(Self.claudeTagBg)
-                            )
-
-                        // Terminal tag — grey pill
+                        // Terminal tag — grey pill (shows tmux if in tmux)
                         Text(terminalTag)
                             .font(.system(size: 8, weight: .medium))
                             .foregroundColor(.white.opacity(0.35))
@@ -439,9 +453,21 @@ struct InstanceRow: View {
                         Text(durationText)
                             .font(.system(size: 10))
                             .foregroundColor(.white.opacity(0.3))
+
+                        // Terminal jump button — uses onTapGesture to avoid SwiftUI Button hitTest issues
+                        Image(systemName: "terminal")
+                            .font(.system(size: 10))
+                            .foregroundColor(.white.opacity(0.4))
+                            .frame(width: 20, height: 20)
+                            .background(
+                                RoundedRectangle(cornerRadius: 4)
+                                    .fill(Color.white.opacity(0.08))
+                            )
+                            .contentShape(Rectangle())
+                            .onTapGesture { onFocus() }
                     }
 
-                    // Subtitle (2 lines)
+                    // Subtitle
                     subtitleView
 
                     // Approval buttons row when needed
@@ -458,6 +484,7 @@ struct InstanceRow: View {
             .padding(.horizontal, 8)
             .padding(.vertical, 7)
             .contentShape(Rectangle())
+            .onTapGesture { onChat() }
             .background(
                 RoundedRectangle(cornerRadius: 6)
                     .fill(isHovered ? Color.white.opacity(0.06) : Color.clear)

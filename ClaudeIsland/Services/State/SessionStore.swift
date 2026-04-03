@@ -125,6 +125,7 @@ actor SessionStore {
     private func processHookEvent(_ event: HookEvent) async {
         let sessionId = event.sessionId
         let isNewSession = sessions[sessionId] == nil
+        DebugLogger.log("Hook", "\(event.event) status=\(event.status) sid=\(sessionId.prefix(8)) new=\(isNewSession)")
         var session = sessions[sessionId] ?? createSession(from: event)
 
         session.pid = event.pid
@@ -138,6 +139,9 @@ actor SessionStore {
                 let command = URL(fileURLWithPath: termInfo.command).lastPathComponent
                 session.terminalApp = TerminalAppRegistry.displayName(for: command)
             }
+            if isNewSession {
+                DebugLogger.log("Hook", "pid=\(pid) tmux=\(session.isInTmux) termApp=\(session.terminalApp ?? "nil")")
+            }
         }
         if let tty = event.tty {
             session.tty = tty.replacingOccurrences(of: "/dev/", with: "")
@@ -145,8 +149,10 @@ actor SessionStore {
         session.lastActivity = Date()
 
         if event.status == "ended" {
-            sessions.removeValue(forKey: sessionId)
+            session.phase = .ended
+            sessions[sessionId] = session
             cancelPendingSync(sessionId: sessionId)
+            publishState()
             return
         }
 
@@ -170,12 +176,19 @@ actor SessionStore {
             session.subagentState = SubagentState()
         }
 
-        // Parse conversationInfo on every event to keep summary fresh
-        let conversationInfo = await ConversationParser.shared.parse(
-            sessionId: sessionId,
-            cwd: event.cwd
-        )
-        session.conversationInfo = conversationInfo
+        // Parse conversationInfo only when needed (not on every event — too expensive for large JSONL)
+        if session.conversationInfo.firstUserMessage == nil ||
+           (session.phase == .waitingForInput && session.conversationInfo.lastMessage == nil) {
+            DebugLogger.log("Store", "Parsing conversationInfo for \(sessionId.prefix(8))")
+            let conversationInfo = await ConversationParser.shared.parse(
+                sessionId: sessionId,
+                cwd: event.cwd
+            )
+            if conversationInfo.firstUserMessage != nil {
+                session.conversationInfo = conversationInfo
+                DebugLogger.log("Store", "Got: first=\(conversationInfo.firstUserMessage?.prefix(30) ?? "nil")")
+            }
+        }
 
         sessions[sessionId] = session
         publishState()
@@ -506,6 +519,8 @@ actor SessionStore {
 
     private func processFileUpdate(_ payload: FileUpdatePayload) async {
         guard var session = sessions[payload.sessionId] else { return }
+
+        DebugLogger.log("FileUpdate", "sid=\(payload.sessionId.prefix(8)) msgs=\(payload.messages.count) inc=\(payload.isIncremental)")
 
         // Update conversationInfo from JSONL (summary, lastMessage, etc.)
         let conversationInfo = await ConversationParser.shared.parse(
@@ -904,8 +919,11 @@ actor SessionStore {
         // Update conversationInfo (summary, lastMessage, etc.)
         session.conversationInfo = conversationInfo
 
+        DebugLogger.log("HistLoad", "sid=\(sessionId.prefix(8)) msgs=\(messages.count) existing=\(session.chatItems.count)")
+
         // Convert messages to chat items
         let existingIds = Set(session.chatItems.map { $0.id })
+        var addedCount = 0
 
         for message in messages {
             for (blockIndex, block) in message.content.enumerated() {
@@ -922,9 +940,12 @@ actor SessionStore {
 
                 if let item = item {
                     session.chatItems.append(item)
+                    addedCount += 1
                 }
             }
         }
+
+        DebugLogger.log("HistLoad", "Added \(addedCount) items, total=\(session.chatItems.count)")
 
         // Sort by timestamp
         session.chatItems.sort { $0.timestamp < $1.timestamp }

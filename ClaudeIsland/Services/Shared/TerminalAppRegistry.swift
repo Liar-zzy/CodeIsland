@@ -27,6 +27,7 @@ struct TerminalAppRegistry: Sendable {
         "st",
         "urxvt",
         "xterm",
+        "cmux",
         "Code",           // VS Code
         "Code - Insiders",
         "Cursor",

@@ -80,7 +80,7 @@ struct SessionState: Equatable, Identifiable, Sendable {
         subagentState: SubagentState = SubagentState(),
         conversationInfo: ConversationInfo = ConversationInfo(
             summary: nil, lastMessage: nil, lastMessageRole: nil,
-            lastToolName: nil, firstUserMessage: nil, lastUserMessageDate: nil
+            lastToolName: nil, firstUserMessage: nil, latestUserMessage: nil, lastUserMessageDate: nil
         ),
         needsClearReconciliation: Bool = false,
         lastActivity: Date = Date(),
@@ -128,9 +128,9 @@ struct SessionState: Equatable, Identifiable, Sendable {
         return sessionId
     }
 
-    /// Display title: summary > first user message > project name
+    /// Display title: summary > latest user message > first user message > project name
     var displayTitle: String {
-        conversationInfo.summary ?? conversationInfo.firstUserMessage ?? projectName
+        conversationInfo.summary ?? conversationInfo.latestUserMessage ?? conversationInfo.firstUserMessage ?? projectName
     }
 
     /// Smart one-line summary synthesized from session data.
@@ -144,7 +144,9 @@ struct SessionState: Equatable, Identifiable, Sendable {
         }
 
         let prefix: String
-        if let first = conversationInfo.firstUserMessage {
+        if let latest = conversationInfo.latestUserMessage {
+            prefix = latest.count > 30 ? String(latest.prefix(30)) + "..." : latest
+        } else if let first = conversationInfo.firstUserMessage {
             prefix = first.count > 30 ? String(first.prefix(30)) + "..." : first
         } else {
             prefix = projectName

@@ -789,7 +789,7 @@ struct CollapsedNotchContent: View {
             HStack(spacing: 4) {
                 if let parts = activityTextParts {
                     Text(parts.project)
-                        .font(.system(size: 13, weight: .bold, design: .monospaced))
+                        .font(.system(size: 13, weight: .medium, design: .monospaced))
                         .foregroundColor(.white.opacity(0.6))
                         .lineLimit(1)
 
@@ -797,7 +797,7 @@ struct CollapsedNotchContent: View {
 
                 if activeSessionCount > 0 {
                     Text("\u{00D7}\(activeSessionCount)")
-                        .font(.system(size: 13, weight: .bold, design: .monospaced))
+                        .font(.system(size: 13, weight: .medium, design: .monospaced))
                         .foregroundColor(badgeColor)
                 }
             }
@@ -858,18 +858,18 @@ struct CollapsedNotchContent: View {
         if isWorkingStatus, let label = statusLabelWithoutDots {
             HStack(spacing: 0) {
                 Text(label)
-                    .font(.system(size: 13, weight: .bold, design: .monospaced))
+                    .font(.system(size: 13, weight: .medium, design: .monospaced))
                     .foregroundStyle(statusGradient)
                     .lineLimit(1)
 
                 AnimatedEllipsis()
-                    .font(.system(size: 13, weight: .bold, design: .monospaced))
+                    .font(.system(size: 13, weight: .medium, design: .monospaced))
                     .foregroundStyle(statusGradient)
 
             }
         } else if let parts = activityTextParts {
             Text(parts.status)
-                .font(.system(size: 13, weight: .bold, design: .monospaced))
+                .font(.system(size: 13, weight: .medium, design: .monospaced))
                 .foregroundStyle(statusGradient)
                 .lineLimit(1)
 
@@ -882,7 +882,7 @@ struct CollapsedNotchContent: View {
            let title = session.firstUserMessage ?? session.conversationInfo.summary {
             let truncated = title.count > 24 ? String(title.prefix(24)) + "\u{2026}" : title
             Text(truncated)
-                .font(.system(size: 13, weight: .bold, design: .monospaced))
+                .font(.system(size: 13, weight: .medium, design: .monospaced))
                 .foregroundStyle(statusGradient)
                 .lineLimit(1)
 
@@ -909,7 +909,7 @@ struct CollapsedNotchContent: View {
     private var carouselToolAction: some View {
         if let label = toolActionLabel {
             Text(label)
-                .font(.system(size: 13, weight: .bold, design: .monospaced))
+                .font(.system(size: 13, weight: .medium, design: .monospaced))
                 .foregroundStyle(statusGradient)
                 .lineLimit(1)
 
@@ -927,13 +927,13 @@ struct CollapsedNotchContent: View {
                 ? session.projectName
                 : "\(session.projectName) \u{00B7} \(duration)"
             Text(display)
-                .font(.system(size: 13, weight: .bold, design: .monospaced))
+                .font(.system(size: 13, weight: .medium, design: .monospaced))
                 .foregroundStyle(statusGradient)
                 .lineLimit(1)
 
         } else if let parts = activityTextParts {
             Text(parts.project)
-                .font(.system(size: 13, weight: .bold, design: .monospaced))
+                .font(.system(size: 13, weight: .medium, design: .monospaced))
                 .foregroundStyle(statusGradient)
                 .lineLimit(1)
 
