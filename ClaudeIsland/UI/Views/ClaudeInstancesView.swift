@@ -447,7 +447,10 @@ struct ClaudeInstancesView: View {
     // MARK: - Actions
 
     private func focusSession(_ session: SessionState) {
-        Task { await TerminalJumper.shared.jump(to: session) }
+        Task {
+            await TerminalJumper.shared.jump(to: session)
+            await MainActor.run { viewModel.notchClose() }
+        }
     }
 
     private func openChat(_ session: SessionState) {
