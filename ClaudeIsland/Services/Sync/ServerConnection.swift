@@ -160,12 +160,15 @@ final class ServerConnection: ObservableObject {
                   let msgDict = dict["message"] as? [String: Any],
                   let content = msgDict["content"] as? String else { return }
 
-            // Parse message — if it's a plain text user message from phone, forward to terminal
+            // Filter out message types that originate from CodeIsland itself (assistant,
+            // tool, thinking, etc.) to avoid echo loops. We keep "user" (plain text from
+            // phone) and "key" (control key events from phone). Plain text with no JSON
+            // envelope is also treated as user content.
             if let jsonData = content.data(using: .utf8),
                let parsed = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any],
                let msgType = parsed["type"] as? String {
-                // Skip non-user messages (don't echo our own synced messages)
-                if msgType != "user" { return }
+                let phoneOriginated = Set(["user", "key"])
+                if !phoneOriginated.contains(msgType) { return }
             }
             let sessionTag = dict["sessionTag"] as? String
             let sessionPath = dict["sessionPath"] as? String
@@ -215,6 +218,18 @@ final class ServerConnection: ObservableObject {
     func sendBlobConsumed(blobId: String) {
         guard isConnected else { return }
         socket?.emit("blob-consumed", ["blobId": blobId] as [String: Any])
+    }
+
+    /// Push the capability snapshot to the server so the phone can fetch it.
+    func uploadCapabilities(_ snapshot: CapabilitySnapshot) async {
+        guard let token else { return }
+        guard let data = try? JSONEncoder().encode(snapshot) else { return }
+        var request = URLRequest(url: URL(string: "\(serverUrl)/v1/capabilities")!)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = data
+        _ = try? await URLSession.shared.data(for: request)
     }
 
     /// Download a blob by ID. Returns (data, mime) or throws.

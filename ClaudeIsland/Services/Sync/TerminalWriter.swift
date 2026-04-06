@@ -78,6 +78,103 @@ final class TerminalWriter {
         return await sendViaCmuxDirect(text, claudeUuid: claudeUuid, cwd: cwd)
     }
 
+    /// Send a single control key (escape, ctrl+c, enter, …) to the Claude terminal.
+    /// Returns true if the cmux surface was found and send-key invoked.
+    func sendControlKey(_ key: String, claudeUuid: String) async -> Bool {
+        guard let (wsId, surfId) = findCmuxTargetForClaudeSession(uuid: claudeUuid),
+              let surfId else {
+            Self.logger.warning("sendControlKey: no cmux target for uuid=\(claudeUuid.prefix(8))")
+            return false
+        }
+        let result = cmuxRun(["send-key", "--workspace", wsId, "--surface", surfId, "--", key])
+        Self.logger.info("Sent key '\(key)' to cmux (ws=\(wsId.prefix(8)) surf=\(surfId.prefix(8))) result=\(result != nil)")
+        return result != nil
+    }
+
+    /// Capture the terminal output that appeared *after* a slash command was sent.
+    /// Snapshots the pane before, sends the command, waits for output to settle,
+    /// then diffs the two snapshots and returns only the new lines.
+    ///
+    /// Returns nil if we can't locate the cmux surface for this Claude session or
+    /// capture fails.
+    func sendSlashCommandAndCaptureOutput(_ command: String, claudeUuid: String, settleMs: UInt64 = 1500) async -> String? {
+        guard let (wsId, surfId) = findCmuxTargetForClaudeSession(uuid: claudeUuid),
+              let surfId else {
+            Self.logger.warning("captureOutput: no cmux target for uuid=\(claudeUuid.prefix(8))")
+            return nil
+        }
+
+        // Pre-snapshot
+        let before = cmuxRun(["read-screen", "--workspace", wsId, "--surface", surfId, "--scrollback", "--lines", "500"]) ?? ""
+
+        // Send the command
+        let escaped = command.replacingOccurrences(of: "\n", with: "\r")
+        _ = cmuxRun(["send", "--workspace", wsId, "--surface", surfId, "--", "\(escaped)\r"])
+
+        // Wait for the CLI to render its response
+        try? await Task.sleep(nanoseconds: settleMs * 1_000_000)
+
+        // Post-snapshot
+        let after = cmuxRun(["read-screen", "--workspace", wsId, "--surface", surfId, "--scrollback", "--lines", "500"]) ?? ""
+
+        let diff = diffTerminalSnapshots(before: before, after: after)
+        return diff.isEmpty ? nil : diff
+    }
+
+    /// Extract the text that newly appeared in `after` relative to `before`.
+    /// Strategy: find the last non-empty anchor line from `before` in `after`,
+    /// return everything after it. Falls back to the trailing portion if no anchor.
+    nonisolated private func diffTerminalSnapshots(before: String, after: String) -> String {
+        let beforeLines = before.split(omittingEmptySubsequences: false, whereSeparator: \.isNewline).map(String.init)
+        let afterLines = after.split(omittingEmptySubsequences: false, whereSeparator: \.isNewline).map(String.init)
+        guard !afterLines.isEmpty else { return "" }
+
+        // Find an anchor: the last non-empty meaningful line from `before` that
+        // also appears in `after`. Search from the end of `before` forward.
+        let meaningful = beforeLines.reversed().first { line in
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            return !trimmed.isEmpty && trimmed.count > 4
+        }
+
+        if let anchor = meaningful,
+           let idx = afterLines.lastIndex(of: anchor) {
+            let newLines = Array(afterLines.suffix(from: afterLines.index(after: idx)))
+            return cleanupOutputLines(newLines)
+        }
+
+        // Fallback: return the last N lines of the after snapshot
+        let trailing = Array(afterLines.suffix(40))
+        return cleanupOutputLines(trailing)
+    }
+
+    /// Normalize captured terminal lines: trim trailing whitespace, drop leading
+    /// blank lines, collapse long runs of empty lines, cap total length.
+    nonisolated private func cleanupOutputLines(_ lines: [String]) -> String {
+        var cleaned: [String] = []
+        var blankRun = 0
+        for rawLine in lines {
+            let line = rawLine.replacingOccurrences(of: "\u{00A0}", with: " ")
+                .trimmingCharacters(in: CharacterSet(charactersIn: " \t\r"))
+            if line.isEmpty {
+                blankRun += 1
+                if blankRun <= 1 && !cleaned.isEmpty {
+                    cleaned.append("")
+                }
+            } else {
+                blankRun = 0
+                cleaned.append(line)
+            }
+        }
+        // Trim leading/trailing blanks
+        while let first = cleaned.first, first.isEmpty { cleaned.removeFirst() }
+        while let last = cleaned.last, last.isEmpty { cleaned.removeLast() }
+        var joined = cleaned.joined(separator: "\n")
+        if joined.count > 4000 {
+            joined = String(joined.suffix(4000))
+        }
+        return joined
+    }
+
     /// Paste one or more images into the terminal running the given Claude session,
     /// then send any accompanying text. Uses NSPasteboard + CGEvent Cmd+V via cmux focus.
     /// Returns true if at least the focusing + paste attempts succeeded.

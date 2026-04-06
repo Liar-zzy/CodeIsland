@@ -24,6 +24,7 @@ final class SyncManager: ObservableObject {
     private var connection: ServerConnection?
     private var relay: MessageRelay?
     private var rpcExecutor: RPCExecutor?
+    private var capabilityTimer: Timer?
 
     /// Text the phone injected into a Claude session via cmux. Used so MessageRelay
     /// can skip re-uploading the same text when it re-appears in the JSONL (dedup).
@@ -124,6 +125,11 @@ final class SyncManager: ObservableObject {
             isEnabled = true
             connectionState = .connected
             Self.logger.info("Sync enabled with \(url)")
+
+            // Scan local capabilities and push to server so the phone can browse
+            // available slash commands, skills, and MCP servers. Then refresh every
+            // 10 minutes in case the user installs new plugins.
+            scheduleCapabilityUploads()
         } catch {
             connectionState = .error(error.localizedDescription)
             Self.logger.error("Sync connection failed: \(error)")
@@ -141,6 +147,24 @@ final class SyncManager: ObservableObject {
 
         // Parse the message content — it may be plain text OR a JSON envelope with images.
         let (parsedText, imageBlobIds) = parseMessagePayload(text)
+
+        // Control-key path: phone explicitly sends `{type:"key", key:"escape"}` etc.
+        // These don't go through stdin — we fire them directly at the cmux surface.
+        if let controlKey = parseControlKey(text) {
+            let targetUuidForKey: String?
+            if let localId, sessions.contains(where: { $0.sessionId == localId }) {
+                targetUuidForKey = localId
+            } else {
+                targetUuidForKey = claudeUuid
+            }
+            if let uuid = targetUuidForKey {
+                let ok = await TerminalWriter.shared.sendControlKey(controlKey, claudeUuid: uuid)
+                Self.logger.info("Phone control key '\(controlKey, privacy: .public)' → \(ok ? "success" : "failed")")
+            } else {
+                Self.logger.warning("Control key dropped: no target uuid")
+            }
+            return
+        }
         Self.logger.info("parsed: text=\(parsedText.prefix(80), privacy: .public) blobCount=\(imageBlobIds.count)")
 
         // Resolve which Claude UUID we're actually targeting for dedup & image routing.
@@ -180,6 +204,21 @@ final class SyncManager: ObservableObject {
             }
         }
 
+        // Slash-command path: Claude's built-in commands (/usage, /cost, /model, etc.)
+        // don't emit hook events, so their output never hits the JSONL and the phone
+        // wouldn't otherwise see the response. We snapshot the pane, inject the
+        // command, wait, snapshot again, diff, and ship the new lines back as a
+        // synthetic terminal_output message.
+        if parsedText.hasPrefix("/"), let targetUuid {
+            let output = await TerminalWriter.shared.sendSlashCommandAndCaptureOutput(parsedText, claudeUuid: targetUuid)
+            recordPhoneInjection(claudeUuid: targetUuid, text: parsedText)
+            if let output, !output.isEmpty {
+                await sendTerminalOutputMessage(sessionId: serverSessionId, command: parsedText, output: output)
+            }
+            Self.logger.info("Phone slash command /\(parsedText.dropFirst().prefix(20)) → captured=\(output != nil)")
+            return
+        }
+
         // Text-only path
         // Path 1: locally tracked session
         if let localId, let session = sessions.first(where: { $0.sessionId == localId }) {
@@ -198,6 +237,57 @@ final class SyncManager: ObservableObject {
         }
 
         Self.logger.warning("Phone message dropped: no local session and no uuid for serverId=\(serverSessionId, privacy: .public)")
+    }
+
+    // MARK: - Capability Upload
+
+    /// Scan the local filesystem for capabilities and push to the server now, then
+    /// refresh every 10 minutes. Passes the most recent session's cwd so project-local
+    /// commands/skills get included.
+    private func scheduleCapabilityUploads() {
+        capabilityTimer?.invalidate()
+        Task { [weak self] in await self?.uploadCapabilitiesNow() }
+        capabilityTimer = Timer.scheduledTimer(withTimeInterval: 600, repeats: true) { [weak self] _ in
+            Task { @MainActor in await self?.uploadCapabilitiesNow() }
+        }
+    }
+
+    private func uploadCapabilitiesNow() async {
+        guard let connection = self.connection else { return }
+        // Pick a project path from the most recent session (if any) so project-local
+        // commands/skills get scanned too.
+        let sessions = await SessionStore.shared.currentSessions()
+        let projectPath = sessions.first?.cwd
+        let snapshot = CapabilityScanner.scan(projectPath: projectPath)
+        await connection.uploadCapabilities(snapshot)
+        Self.logger.info("Uploaded capability snapshot (project=\(projectPath ?? "-"))")
+    }
+
+    /// Emit a synthetic `terminal_output` message on behalf of the user's session,
+    /// so the phone can render the captured response to a slash command.
+    private func sendTerminalOutputMessage(sessionId: String, command: String, output: String) async {
+        guard let connection = self.connection, connection.isConnected else { return }
+        let payload: [String: Any] = [
+            "type": "terminal_output",
+            "command": command,
+            "text": output,
+            "timestamp": Date().timeIntervalSince1970,
+        ]
+        guard let data = try? JSONSerialization.data(withJSONObject: payload),
+              let json = String(data: data, encoding: .utf8) else { return }
+        let localId = "term-\(UUID().uuidString)"
+        connection.sendMessage(sessionId: sessionId, content: json, localId: localId)
+    }
+
+    /// Extract a control key name from a message payload of shape `{type:"key", key:"escape"}`.
+    /// Returns nil if the message isn't a control-key envelope.
+    private func parseControlKey(_ content: String) -> String? {
+        guard let data = content.data(using: .utf8),
+              let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              (dict["type"] as? String) == "key",
+              let key = dict["key"] as? String
+        else { return nil }
+        return key
     }
 
     /// Extract `text` and `images[].blobId` from a message content string. If the content
