@@ -141,7 +141,7 @@ struct NotchMenuView: View {
 
                     // CodeLight pairing
                     sectionHeader("CodeLight")
-                    PairPhoneView()
+                    PairPhoneRow()
 
                     // Star & Feedback
                     HStack(spacing: 6) {
