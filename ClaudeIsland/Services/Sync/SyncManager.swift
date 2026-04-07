@@ -25,6 +25,11 @@ final class SyncManager: ObservableObject {
     private var relay: MessageRelay?
     private var rpcExecutor: RPCExecutor?
     private var capabilityTimer: Timer?
+    private var projectUploadTimer: Timer?
+
+    /// Re-publishes the underlying ServerConnection.shortCode so SwiftUI views
+    /// (PairPhoneView) can observe it via SyncManager directly.
+    @Published private(set) var shortCode: String?
 
     /// Text the phone injected into a Claude session via cmux. Used so MessageRelay
     /// can skip re-uploading the same text when it re-appears in the JSONL (dedup).
@@ -99,6 +104,22 @@ final class SyncManager: ObservableObject {
                 }
             }
 
+            // Phone unpaired this Mac → log + future: clean up local state
+            conn.onLinkRemoved = { [weak self] sourceDeviceId in
+                Task { @MainActor in
+                    Self.logger.info("iPhone \(sourceDeviceId.prefix(8), privacy: .public) unpaired from this Mac")
+                    self?.objectWillChange.send()
+                }
+            }
+
+            // Phone requested a remote session launch → spawn cmux subprocess
+            conn.onSessionLaunch = { presetId, projectPath, requestedBy in
+                Task { @MainActor in
+                    let ok = LaunchService.shared.launch(presetId: presetId, projectPath: projectPath)
+                    Self.logger.info("session-launch from \(requestedBy.prefix(8), privacy: .public): \(ok ? "ok" : "failed")")
+                }
+            }
+
             // Wait for socket to actually connect before starting relay
             let relay = MessageRelay(connection: conn)
             self.relay = relay
@@ -126,10 +147,22 @@ final class SyncManager: ObservableObject {
             connectionState = .connected
             Self.logger.info("Sync enabled with \(url)")
 
+            // Register this Mac with the server (lazy-allocates permanent shortCode).
+            let macName = Host.current().localizedName ?? "Mac"
+            await conn.registerDevice(name: macName, kind: "mac")
+            self.shortCode = conn.shortCode
+
+            // Push current preset list to the server so the phone can browse them.
+            await uploadPresets()
+
             // Scan local capabilities and push to server so the phone can browse
             // available slash commands, skills, and MCP servers. Then refresh every
             // 10 minutes in case the user installs new plugins.
             scheduleCapabilityUploads()
+
+            // Periodically upload known project paths so the phone can pick from
+            // recent projects when launching a session.
+            scheduleProjectUploads()
         } catch {
             connectionState = .error(error.localizedDescription)
             Self.logger.error("Sync connection failed: \(error)")
@@ -263,6 +296,47 @@ final class SyncManager: ObservableObject {
         Self.logger.info("Uploaded capability snapshot (project=\(projectPath ?? "-"))")
     }
 
+    // MARK: - Preset / Project Upload
+
+    /// Push the current preset list to the server. Called on connect and on every preset mutation.
+    func uploadPresets() async {
+        guard let connection = self.connection else { return }
+        let payload = PresetStore.shared.presets.map { $0.serverPayload }
+        await connection.uploadPresets(payload)
+        Self.logger.info("Uploaded \(payload.count) presets")
+    }
+
+    /// Schedule periodic uploads of known project paths (every 5 minutes).
+    private func scheduleProjectUploads() {
+        projectUploadTimer?.invalidate()
+        Task { [weak self] in await self?.uploadProjectsNow() }
+        projectUploadTimer = Timer.scheduledTimer(withTimeInterval: 300, repeats: true) { [weak self] _ in
+            Task { @MainActor in await self?.uploadProjectsNow() }
+        }
+    }
+
+    private func uploadProjectsNow() async {
+        guard let connection = self.connection else { return }
+        let sessions = await SessionStore.shared.currentSessions()
+
+        // Dedupe by cwd, prefer the entry whose projectName is non-empty.
+        var byPath: [String: String] = [:]
+        for s in sessions {
+            let cwd = s.cwd
+            guard !cwd.isEmpty else { continue }
+            let name = s.projectName.isEmpty ? URL(fileURLWithPath: cwd).lastPathComponent : s.projectName
+            byPath[cwd] = name
+        }
+
+        let projects = byPath.map { (path, name) in
+            ["path": path, "name": name]
+        }
+        guard !projects.isEmpty else { return }
+
+        await connection.uploadProjects(projects)
+        Self.logger.info("Uploaded \(projects.count) project paths")
+    }
+
     /// Emit a synthetic `terminal_output` message on behalf of the user's session,
     /// so the phone can render the captured response to a slash command.
     private func sendTerminalOutputMessage(sessionId: String, command: String, output: String) async {
@@ -312,6 +386,11 @@ final class SyncManager: ObservableObject {
         connection = nil
         relay = nil
         rpcExecutor = nil
+        capabilityTimer?.invalidate()
+        capabilityTimer = nil
+        projectUploadTimer?.invalidate()
+        projectUploadTimer = nil
+        shortCode = nil
         isEnabled = false
         connectionState = .disconnected
     }

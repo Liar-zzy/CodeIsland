@@ -33,7 +33,9 @@ final class ServerConnection: ObservableObject {
     private let serverUrl: String
     private let keyManager: KeyManager
     private var token: String?
-    private var deviceId: String?
+    private(set) var deviceId: String?
+    /// This Mac's permanent shortCode, populated by `registerDevice`. Lazy-allocated server-side.
+    @Published private(set) var shortCode: String?
     private var manager: SocketManager?
     private var socket: SocketIOClient?
     private var crypto: MessageCrypto?
@@ -43,6 +45,12 @@ final class ServerConnection: ObservableObject {
 
     /// Called when a user message arrives from another device (phone)
     var onUserMessage: ((String, String, String?, String?) -> Void)?  // (serverSessionId, messageText, claudeUuid, cwd)
+
+    /// Called when an iPhone unpairs this Mac. Payload: source iPhone's deviceId.
+    var onLinkRemoved: ((String) -> Void)?
+
+    /// Called when an iPhone requests a remote session launch. Payload: (presetId, projectPath, requestedByDeviceId).
+    var onSessionLaunch: ((String, String, String) -> Void)?
 
     var isConnected: Bool { state == .connected }
 
@@ -180,6 +188,28 @@ final class ServerConnection: ObservableObject {
             }
         }
 
+        // iPhone unpaired this Mac → clean up local state
+        socket?.on("link-removed") { [weak self] data, _ in
+            guard let dict = data.first as? [String: Any],
+                  let sourceDeviceId = dict["sourceDeviceId"] as? String else { return }
+            Task { @MainActor in
+                Self.logger.info("link-removed from iPhone \(sourceDeviceId.prefix(8), privacy: .public)")
+                self?.onLinkRemoved?(sourceDeviceId)
+            }
+        }
+
+        // iPhone requested a remote session launch → spawn cmux subprocess
+        socket?.on("session-launch") { [weak self] data, _ in
+            guard let dict = data.first as? [String: Any],
+                  let presetId = dict["presetId"] as? String,
+                  let projectPath = dict["projectPath"] as? String,
+                  let requestedBy = dict["requestedByDeviceId"] as? String else { return }
+            Task { @MainActor in
+                Self.logger.info("session-launch from iPhone \(requestedBy.prefix(8), privacy: .public): preset=\(presetId, privacy: .public) path=\(projectPath, privacy: .public)")
+                self?.onSessionLaunch?(presetId, projectPath, requestedBy)
+            }
+        }
+
         socket?.connect()
     }
 
@@ -281,5 +311,51 @@ final class ServerConnection: ObservableObject {
 
         let (data, _) = try await URLSession.shared.data(for: request)
         return try JSONSerialization.jsonObject(with: data) as? [String: Any] ?? [:]
+    }
+
+    private func putJSON(path: String, body: [String: Any]) async throws {
+        let url = URL(string: "\(serverUrl)\(path)")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "PUT"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if let token { request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        _ = try await URLSession.shared.data(for: request)
+    }
+
+    // MARK: - Multi-device pairing API
+
+    /// Register this Mac with the server. Lazy-allocates and returns a permanent shortCode.
+    /// Idempotent — call on every launch.
+    func registerDevice(name: String, kind: String) async {
+        do {
+            let res = try await postJSON(path: "/v1/devices/me", body: ["name": name, "kind": kind])
+            if let code = res["shortCode"] as? String {
+                self.shortCode = code
+                Self.logger.info("Registered as \(kind) '\(name)', shortCode=\(code, privacy: .public)")
+            } else {
+                Self.logger.warning("Device registered but no shortCode returned (kind=\(kind, privacy: .public))")
+            }
+        } catch {
+            Self.logger.error("registerDevice failed: \(error.localizedDescription)")
+        }
+    }
+
+    /// Upload this Mac's launch presets (full replace).
+    func uploadPresets(_ presets: [[String: Any]]) async {
+        do {
+            try await putJSON(path: "/v1/devices/me/presets", body: ["presets": presets])
+        } catch {
+            Self.logger.error("uploadPresets failed: \(error.localizedDescription)")
+        }
+    }
+
+    /// Upload this Mac's known project paths.
+    func uploadProjects(_ projects: [[String: String]]) async {
+        do {
+            try await putJSON(path: "/v1/devices/me/projects", body: ["projects": projects])
+        } catch {
+            Self.logger.error("uploadProjects failed: \(error.localizedDescription)")
+        }
     }
 }

@@ -388,6 +388,17 @@ final class TerminalWriter {
         var targetWsRef: String?
         for wsLine in wsOutput.components(separatedBy: "\n") where !wsLine.isEmpty {
             guard let wsRef = wsLine.components(separatedBy: " ").first(where: { $0.hasPrefix("workspace:") }) else { continue }
+
+            // Fast path: cmux often puts the Claude UUID and/or project name directly
+            // in the workspace TITLE (e.g. `workspace:1  server · <title> · 6da6225e-…`),
+            // while `list-pane-surfaces` may only show a short surface name. Check the
+            // workspace line itself first.
+            if wsLine.contains(sid) || wsLine.contains(dirName) {
+                targetWsRef = wsRef
+                break
+            }
+
+            // Fall back to matching inside the surface output.
             guard let surfOutput = cmuxRun(["list-pane-surfaces", "--workspace", wsRef]) else { continue }
             if surfOutput.contains(sid) || surfOutput.contains(dirName) {
                 targetWsRef = wsRef
@@ -396,14 +407,14 @@ final class TerminalWriter {
         }
 
         guard let wsRef = targetWsRef else {
-            Self.logger.debug("No matching cmux workspace for \(sid)")
+            Self.logger.warning("No matching cmux workspace for sid=\(sid, privacy: .public) dir=\(dirName, privacy: .public)")
             return false
         }
 
         // Send text + Enter
         let escaped = text.replacingOccurrences(of: "\n", with: "\r")
         _ = cmuxRun(["send", "--workspace", wsRef, "--", "\(escaped)\r"])
-        Self.logger.info("Sent message to cmux workspace \(wsRef)")
+        Self.logger.info("Sent message to cmux workspace \(wsRef, privacy: .public)")
         return true
     }
 

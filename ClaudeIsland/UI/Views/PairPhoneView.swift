@@ -75,7 +75,7 @@ final class QRPairingWindow {
 
         let hostingView = NSHostingView(rootView: contentView)
         let windowWidth: CGFloat = 280
-        let windowHeight: CGFloat = 380
+        let windowHeight: CGFloat = 460
         let w = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: windowWidth, height: windowHeight),
             styleMask: [.borderless],
@@ -123,6 +123,7 @@ final class QRPairingWindow {
 
 private struct QRPairingContentView: View {
     let onClose: () -> Void
+    @ObservedObject private var syncManager = SyncManager.shared
     @State private var qrImage: NSImage?
     @State private var deviceName = Host.current().localizedName ?? "Mac"
     @State private var isHoveringClose = false
@@ -131,8 +132,12 @@ private struct QRPairingContentView: View {
         SyncManager.shared.serverUrl ?? "https://island.wdao.chat"
     }
 
+    private var shortCode: String? {
+        syncManager.shortCode
+    }
+
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 14) {
             // Close button
             HStack {
                 Spacer()
@@ -148,27 +153,42 @@ private struct QRPairingContentView: View {
             }
             .padding(.bottom, -8)
 
-            // QR Code with integrated label
+            // QR Code
             if let qrImage {
-                VStack(spacing: 10) {
-                    Image(nsImage: qrImage)
-                        .interpolation(.none)
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 180, height: 180)
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
-                        .padding(14)
-                        .background(
-                            RoundedRectangle(cornerRadius: 14)
-                                .fill(.white)
-                        )
-                }
+                Image(nsImage: qrImage)
+                    .interpolation(.none)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 160, height: 160)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .padding(12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 14)
+                            .fill(.white)
+                    )
+            } else {
+                RoundedRectangle(cornerRadius: 14)
+                    .fill(.white.opacity(0.06))
+                    .frame(width: 184, height: 184)
+                    .overlay(ProgressView().tint(.white.opacity(0.4)))
             }
 
-            // Title
-            Text("Scan with CodeLight")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(.white.opacity(0.9))
+            // "Scan or enter code"
+            Text("Scan or enter code")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(.white.opacity(0.5))
+
+            // Big short code display
+            Text(shortCode ?? "------")
+                .font(.system(size: 28, weight: .bold, design: .monospaced))
+                .tracking(4)
+                .foregroundColor(.white.opacity(shortCode == nil ? 0.25 : 0.95))
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .background(
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(.white.opacity(0.06))
+                )
 
             // Info pills
             HStack(spacing: 8) {
@@ -177,7 +197,7 @@ private struct QRPairingContentView: View {
             }
         }
         .padding(20)
-        .frame(width: 280, height: 380)
+        .frame(width: 280, height: 460)
         .background(
             RoundedRectangle(cornerRadius: 20)
                 .fill(.ultraThinMaterial)
@@ -188,6 +208,9 @@ private struct QRPairingContentView: View {
                 .strokeBorder(.white.opacity(0.1), lineWidth: 0.5)
         )
         .onAppear {
+            generateQRCode()
+        }
+        .onChange(of: shortCode) { _, _ in
             generateQRCode()
         }
     }
@@ -207,10 +230,11 @@ private struct QRPairingContentView: View {
     }
 
     private func generateQRCode() {
+        // New payload format: {server, code}. iPhone parses these and calls
+        // POST /v1/pairing/code/redeem.
         let payload: [String: String] = [
-            "s": serverUrl,
-            "k": "",
-            "n": deviceName,
+            "server": serverUrl,
+            "code": shortCode ?? "",
         ]
 
         guard let jsonData = try? JSONSerialization.data(withJSONObject: payload),
