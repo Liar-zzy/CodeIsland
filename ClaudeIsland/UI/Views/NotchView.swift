@@ -32,6 +32,7 @@ struct NotchView: View {
 
     @AppStorage("smartSuppression") private var smartSuppression: Bool = true
     @AppStorage("autoCollapseOnMouseLeave") private var autoCollapseOnMouseLeave: Bool = true
+    @ObservedObject private var notchStore: NotchCustomizationStore = .shared
 
     @Namespace private var activityNamespace
 
@@ -202,13 +203,15 @@ struct NotchView: View {
                             : cornerRadiusInsets.closed.bottom
                     )
                     .padding([.horizontal, .bottom], viewModel.status == .opened ? 12 : 0)
-                    .background(.black)
+                    .background(NotchPalette.for(notchStore.customization.theme).bg)
+                    .animation(.easeInOut(duration: 0.3), value: notchStore.customization.theme)
                     .clipShape(currentNotchShape)
                     .overlay(alignment: .top) {
                         Rectangle()
-                            .fill(.black)
+                            .fill(NotchPalette.for(notchStore.customization.theme).bg)
                             .frame(height: 1)
                             .padding(.horizontal, topCornerRadius)
+                            .animation(.easeInOut(duration: 0.3), value: notchStore.customization.theme)
                     }
                     .shadow(
                         color: (viewModel.status == .opened || isHovering) ? .black.opacity(0.7) : .clear,
@@ -692,6 +695,7 @@ struct CollapsedNotchContent: View {
     @State private var pulsePhase: Bool = false
     @ObservedObject private var buddyReader = BuddyReader.shared
     @AppStorage("usePixelCat") private var usePixelCat: Bool = false
+    @ObservedObject private var notchStore: NotchCustomizationStore = .shared
 
     // MARK: - Unattended Task Alert
 
@@ -756,22 +760,24 @@ struct CollapsedNotchContent: View {
                     .shadow(color: effectiveStatusDotColor.opacity(0.5), radius: 3)
                     .opacity(pulsePhase ? 1.0 : 0.5)
 
-                // Buddy icon
-                if usePixelCat {
-                    PixelCharacterView(state: mostUrgentState)
-                        .scaleEffect(0.28)
-                        .frame(width: 16, height: 16)
-                        .matchedGeometryEffect(id: "crab", in: activityNamespace, isSource: true)
-                } else if let buddy = buddyReader.buddy {
-                    EmojiPixelView(emoji: buddy.species.emoji, style: .wave)
-                        .scaleEffect(0.30)
-                        .frame(width: 16, height: 16)
-                        .matchedGeometryEffect(id: "crab", in: activityNamespace, isSource: true)
-                } else {
-                    PixelCharacterView(state: mostUrgentState)
-                        .scaleEffect(0.28)
-                        .frame(width: 16, height: 16)
-                        .matchedGeometryEffect(id: "crab", in: activityNamespace, isSource: true)
+                // Buddy icon — honors the showBuddy preference.
+                if notchStore.customization.showBuddy {
+                    if usePixelCat {
+                        PixelCharacterView(state: mostUrgentState)
+                            .scaleEffect(0.28)
+                            .frame(width: 16, height: 16)
+                            .matchedGeometryEffect(id: "crab", in: activityNamespace, isSource: true)
+                    } else if let buddy = buddyReader.buddy {
+                        EmojiPixelView(emoji: buddy.species.emoji, style: .wave)
+                            .scaleEffect(0.30)
+                            .frame(width: 16, height: 16)
+                            .matchedGeometryEffect(id: "crab", in: activityNamespace, isSource: true)
+                    } else {
+                        PixelCharacterView(state: mostUrgentState)
+                            .scaleEffect(0.28)
+                            .frame(width: 16, height: 16)
+                            .matchedGeometryEffect(id: "crab", in: activityNamespace, isSource: true)
+                    }
                 }
 
                 // Carousel status text (rotates between different info every 3s)

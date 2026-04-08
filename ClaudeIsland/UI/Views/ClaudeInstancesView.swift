@@ -20,6 +20,7 @@ struct ClaudeInstancesView: View {
     @ObservedObject private var buddyReader = BuddyReader.shared
     @State private var showBuddyCard: Bool = false
     @AppStorage("usePixelCat") private var usePixelCat: Bool = false
+    @ObservedObject private var notchStore: NotchCustomizationStore = .shared
 
     var body: some View {
         if sessionMonitor.instances.isEmpty {
@@ -60,10 +61,15 @@ struct ClaudeInstancesView: View {
 
                 // Bottom right: buddy + usage stats
                 // Hidden when buddy card open or when expanded with many sessions
-                if !showBuddyCard && !(sortedInstances.count > 4 && viewModel.isInstancesExpanded) {
+                // Also honor the user's showBuddy / showUsageBar preferences.
+                if !showBuddyCard && !(sortedInstances.count > 4 && viewModel.isInstancesExpanded)
+                    && (notchStore.customization.showBuddy || notchStore.customization.showUsageBar) {
                     VStack(alignment: .trailing, spacing: 4) {
-                        // Only show buddy when ≤ 5 sessions
-                        if sortedInstances.count <= 5, let buddy = buddyReader.buddy {
+                        // Only show buddy when ≤ 5 sessions AND the user has
+                        // the showBuddy preference enabled.
+                        if notchStore.customization.showBuddy,
+                           sortedInstances.count <= 5,
+                           let buddy = buddyReader.buddy {
                             Button {
                                 withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                                     showBuddyCard.toggle()
@@ -76,7 +82,9 @@ struct ClaudeInstancesView: View {
                             .buttonStyle(.plain)
                         }
 
-                        UsageStatsBar(monitor: rateLimitMonitor, totalMinutes: totalSessionMinutes)
+                        if notchStore.customization.showUsageBar {
+                            UsageStatsBar(monitor: rateLimitMonitor, totalMinutes: totalSessionMinutes)
+                        }
                     }
                     .padding(.trailing, 4)
                     .padding(.bottom, 2)
@@ -237,9 +245,11 @@ struct ClaudeInstancesView: View {
                     .padding(.horizontal, 20)
                     .multilineTextAlignment(.center)
 
-                // Usage stats if available
-                UsageStatsBar(monitor: rateLimitMonitor, totalMinutes: 0)
-                    .padding(.top, 4)
+                // Usage stats if available (honors showUsageBar)
+                if notchStore.customization.showUsageBar {
+                    UsageStatsBar(monitor: rateLimitMonitor, totalMinutes: 0)
+                        .padding(.top, 4)
+                }
             }
 
             Spacer()
