@@ -211,30 +211,60 @@ struct AskUserQuestionView: View {
         }
     }
 
-    /// Send text to the terminal using System Events keystroke.
-    /// This simulates real keyboard input, which is required for
-    /// Claude Code's ink/React CLI that uses raw terminal mode.
-    /// cmux `input text` and iTerm2 `write text` paste text which
-    /// raw mode terminals don't process.
+    /// Send text to the terminal using CGEvent keyboard simulation.
+    /// CGEvent posts at the HID level — same as physical keyboard input.
+    /// This works with Claude Code's raw terminal mode (ink/React CLI).
+    /// Code Island already has HID permissions for CGEvent (cursor fix).
     private func sendToTerminal(_ text: String) async {
         // First, jump to the correct terminal
         await TerminalJumper.shared.jump(to: session)
-        // Small delay for the terminal to become frontmost
-        try? await Task.sleep(nanoseconds: 200_000_000)
+        // Wait for the terminal to become frontmost
+        try? await Task.sleep(nanoseconds: 300_000_000)
 
-        // Use System Events to type each character + press Return
-        let escaped = text.replacingOccurrences(of: "\\", with: "\\\\")
-            .replacingOccurrences(of: "\"", with: "\\\"")
-        let script = """
-        tell application "System Events"
-            keystroke "\(escaped)"
-            key code 36
-        end tell
-        """
-        if runAppleScript(script) {
-            DebugLogger.log("AskUser", "Sent '\(text)' via System Events keystroke")
-        } else {
-            DebugLogger.log("AskUser", "System Events keystroke failed for '\(text)'")
+        // Type each character via CGEvent
+        let src = CGEventSource(stateID: .hidSystemState)
+        for char in text {
+            if let keyCode = Self.keyCodeForChar(char) {
+                let down = CGEvent(keyboardEventSource: src, virtualKey: keyCode.code, keyDown: true)
+                if keyCode.shift { down?.flags = .maskShift }
+                down?.post(tap: .cghidEventTap)
+
+                let up = CGEvent(keyboardEventSource: src, virtualKey: keyCode.code, keyDown: false)
+                up?.post(tap: .cghidEventTap)
+            }
+        }
+
+        // Press Return
+        let returnDown = CGEvent(keyboardEventSource: src, virtualKey: 36, keyDown: true)
+        returnDown?.post(tap: .cghidEventTap)
+        let returnUp = CGEvent(keyboardEventSource: src, virtualKey: 36, keyDown: false)
+        returnUp?.post(tap: .cghidEventTap)
+
+        DebugLogger.log("AskUser", "Sent '\(text)' via CGEvent keystroke")
+    }
+
+    private struct KeyCode {
+        let code: CGKeyCode
+        let shift: Bool
+    }
+
+    private static func keyCodeForChar(_ char: Character) -> KeyCode? {
+        // Map common characters to macOS virtual key codes
+        switch char {
+        case "1": return KeyCode(code: 18, shift: false)
+        case "2": return KeyCode(code: 19, shift: false)
+        case "3": return KeyCode(code: 20, shift: false)
+        case "4": return KeyCode(code: 21, shift: false)
+        case "5": return KeyCode(code: 23, shift: false)
+        case "6": return KeyCode(code: 22, shift: false)
+        case "7": return KeyCode(code: 26, shift: false)
+        case "8": return KeyCode(code: 28, shift: false)
+        case "9": return KeyCode(code: 25, shift: false)
+        case "0": return KeyCode(code: 29, shift: false)
+        case " ": return KeyCode(code: 49, shift: false)
+        default:
+            // For any other character, use CGEvent's unicode input
+            return nil
         }
     }
 
