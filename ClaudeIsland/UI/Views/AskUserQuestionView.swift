@@ -211,48 +211,31 @@ struct AskUserQuestionView: View {
         }
     }
 
-    /// Send text to the terminal via cmux input text or AppleScript.
+    /// Send text to the terminal using System Events keystroke.
+    /// This simulates real keyboard input, which is required for
+    /// Claude Code's ink/React CLI that uses raw terminal mode.
+    /// cmux `input text` and iTerm2 `write text` paste text which
+    /// raw mode terminals don't process.
     private func sendToTerminal(_ text: String) async {
-        let termApp = session.terminalApp?.lowercased() ?? ""
-
-        // cmux: use native AppleScript input text
-        if termApp.contains("cmux") || CmuxTreeParser.isAvailable {
-            let sent = CmuxTreeParser.sendText("\(text)\r", toCwd: session.cwd)
-            DebugLogger.log("AskUser", "Sent '\(text)' to cmux: \(sent)")
-            if sent { return }
-        }
-
-        // iTerm2: write text
-        if termApp.contains("iterm") {
-            let script = """
-            tell application "iTerm2"
-                tell current session of current tab of current window
-                    write text "\(text)"
-                end tell
-            end tell
-            """
-            if runAppleScript(script) {
-                DebugLogger.log("AskUser", "Sent '\(text)' via iTerm2")
-                return
-            }
-        }
-
-        // Terminal.app
-        if termApp.contains("terminal") && !termApp.contains("wez") {
-            let script = """
-            tell application "Terminal"
-                do script "\(text)" in selected tab of front window
-            end tell
-            """
-            if runAppleScript(script) {
-                DebugLogger.log("AskUser", "Sent '\(text)' via Terminal.app")
-                return
-            }
-        }
-
-        // Fallback: jump to terminal
-        DebugLogger.log("AskUser", "No supported terminal, jumping")
+        // First, jump to the correct terminal
         await TerminalJumper.shared.jump(to: session)
+        // Small delay for the terminal to become frontmost
+        try? await Task.sleep(nanoseconds: 200_000_000)
+
+        // Use System Events to type each character + press Return
+        let escaped = text.replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
+        let script = """
+        tell application "System Events"
+            keystroke "\(escaped)"
+            key code 36
+        end tell
+        """
+        if runAppleScript(script) {
+            DebugLogger.log("AskUser", "Sent '\(text)' via System Events keystroke")
+        } else {
+            DebugLogger.log("AskUser", "System Events keystroke failed for '\(text)'")
+        }
     }
 
     private func runAppleScript(_ script: String) -> Bool {
