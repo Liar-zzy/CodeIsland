@@ -206,10 +206,10 @@ struct AskUserQuestionView: View {
         Task {
             sessionMonitor.approvePermission(sessionId: session.sessionId)
             try? await Task.sleep(nanoseconds: 500_000_000)
-            // Send "Other" option (last + 1), then the text
-            await sendOptionToTerminal(index: optionCount + 1)
-            try? await Task.sleep(nanoseconds: 300_000_000)
-            await sendTextToTerminal(text)
+            // Send "Other" option number + custom text + Enter as one sequence
+            // Keyboard flow: type "4" (selects Other) → type custom text → Enter
+            let otherIndex = optionCount + 1
+            await sendToTerminal("\(otherIndex)\(text)")
         }
     }
 
@@ -217,36 +217,15 @@ struct AskUserQuestionView: View {
         await sendToTerminal("\(index)")
     }
 
-    private func sendTextToTerminal(_ text: String) async {
-        await sendToTerminal(text)
-    }
-
-    /// Send text to the terminal. Uses cmux native API for cmux,
-    /// System Events keystroke for other terminals.
+    /// Send text to the terminal, followed by Enter.
+    /// Uses cmux input text for cmux, System Events keystroke for others.
     private func sendToTerminal(_ text: String) async {
         let termApp = session.terminalApp?.lowercased() ?? ""
 
-        // cmux: use perform action "text:" (simulates keyboard input, no paste echo)
+        // cmux: use input text API
         if termApp.contains("cmux") {
-            let escapedText = text.replacingOccurrences(of: "\\", with: "\\\\")
-                .replacingOccurrences(of: "\"", with: "\\\"")
-            let escapedCwd = session.cwd.replacingOccurrences(of: "\\", with: "\\\\")
-                .replacingOccurrences(of: "\"", with: "\\\"")
-            let script = """
-            tell application "cmux"
-                set targetTerm to (first terminal whose working directory is "\(escapedCwd)")
-                perform action "text:\(escapedText)" on targetTerm
-                perform action "text:\\n" on targetTerm
-            end tell
-            """
-            if runAppleScript(script) {
-                DebugLogger.log("AskUser", "Sent to cmux via perform action")
-                return
-            }
-            DebugLogger.log("AskUser", "cmux perform action failed, trying input text")
-            // Fallback to input text
             let sent = CmuxTreeParser.sendText("\(text)\r", toCwd: session.cwd)
-            DebugLogger.log("AskUser", "Sent to cmux input text: \(sent)")
+            DebugLogger.log("AskUser", "Sent to cmux: \(sent)")
             return
         }
 
