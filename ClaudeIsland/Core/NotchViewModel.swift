@@ -62,9 +62,39 @@ class NotchViewModel: ObservableObject {
     let spacing: CGFloat = 12
     let hasPhysicalNotch: Bool
 
+    /// Current expansion width from NotchView (synced for hit testing)
+    @Published var currentExpansionWidth: CGFloat = 240
+
     var deviceNotchRect: CGRect { geometry.deviceNotchRect }
     var screenRect: CGRect { geometry.screenRect }
     var windowHeight: CGFloat { geometry.windowHeight }
+
+    /// Height contributed by the DailyReportCard inside the notch menu.
+    /// DailyReportCard writes this when it hides, shows, or expands — so
+    /// the notch menu can size itself naturally instead of being stuck at
+    /// a fixed 440px with a big empty strip underneath.
+    @Published var dailyReportState: DailyReportState = .hidden
+
+    /// Discrete height buckets for the daily report card. Hard-coded
+    /// instead of measured via GeometryReader / PreferenceKey to avoid
+    /// feedback loops between content size and window size.
+    enum DailyReportState: Equatable {
+        case hidden       // Card is not shown (no activity or not loaded)
+        case loading      // First-launch scan, shows the neon cat
+        case collapsed    // Hero line + context line only
+        case expandedDay  // Hero + day details (pills + breakdowns)
+        case expandedWeek // Hero + week details (sparkline + highlights + ...)
+
+        var height: CGFloat {
+            switch self {
+            case .hidden:       return 0
+            case .loading:      return 80
+            case .collapsed:    return 118
+            case .expandedDay:  return 230
+            case .expandedWeek: return 400
+            }
+        }
+    }
 
     /// Dynamic opened size based on content type
     var openedSize: CGSize {
@@ -76,10 +106,16 @@ class NotchViewModel: ObservableObject {
                 height: 580
             )
         case .menu:
-            // Settings menu — enough height for all items including expanded pickers
+            // Lean notch menu — now that all the toggles/pickers moved to
+            // the floating SystemSettings window, the menu is just:
+            //   DailyReportCard + PairPhoneRow + SystemSettingsRow
+            // The report card height varies (hidden / loading / collapsed /
+            // expanded), so we add its dailyReportState.height onto a small
+            // base that covers the header, two rows, and padding.
+            let baseHeight: CGFloat = 200
             return CGSize(
                 width: min(screenRect.width * 0.4, 480),
-                height: 440 + screenSelector.expandedPickerHeight + soundSelector.expandedPickerHeight
+                height: baseHeight + dailyReportState.height
             )
         case .instances:
             let baseHeight: CGFloat = 100
@@ -164,7 +200,7 @@ class NotchViewModel: ObservableObject {
     private var currentChatSession: SessionState?
 
     private func handleMouseMove(_ location: CGPoint) {
-        let inNotch = geometry.isPointInNotch(location)
+        let inNotch = geometry.isPointInNotch(location, expansionWidth: currentExpansionWidth)
         let inOpened = status == .opened && geometry.isPointInOpenedPanel(location, size: openedSize)
 
         let newHovering = inNotch || inOpened
@@ -200,7 +236,7 @@ class NotchViewModel: ObservableObject {
                 repostClickAt(location)
             }
         case .closed, .popping:
-            if geometry.isPointInNotch(location) {
+            if geometry.isPointInNotch(location, expansionWidth: currentExpansionWidth) {
                 notchOpen(reason: .click)
             }
         }

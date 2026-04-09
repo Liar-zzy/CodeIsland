@@ -29,9 +29,9 @@ struct NotchCustomizationSettingsView: View {
     private static let brandLime = Color(red: 0xD7/255, green: 0xFE/255, blue: 0x62/255)
 
     var body: some View {
+        // Title is provided by the enclosing SettingsCard; no internal
+        // section header needed.
         VStack(alignment: .leading, spacing: 4) {
-            sectionHeader(L10n.notchSectionHeader)
-
             themeRow
             fontSizeRow
             toggleRow(

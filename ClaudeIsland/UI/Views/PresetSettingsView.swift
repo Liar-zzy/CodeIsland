@@ -96,9 +96,6 @@ final class PresetSettingsWindow {
 
 private struct PresetSettingsContentView: View {
     let onClose: () -> Void
-    @ObservedObject private var store = PresetStore.shared
-    @State private var editing: LaunchPreset?
-    @State private var showingNew = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -109,14 +106,6 @@ private struct PresetSettingsContentView: View {
                     .foregroundColor(.white.opacity(0.9))
                 Spacer()
                 Button {
-                    showingNew = true
-                } label: {
-                    Image(systemName: "plus.circle.fill")
-                        .font(.system(size: 18))
-                        .foregroundColor(.white.opacity(0.7))
-                }
-                .buttonStyle(.plain)
-                Button {
                     onClose()
                 } label: {
                     Image(systemName: "xmark.circle.fill")
@@ -126,35 +115,8 @@ private struct PresetSettingsContentView: View {
                 .buttonStyle(.plain)
             }
             .padding(20)
-
-            Text("Paired iPhones can launch these as new cmux sessions")
-                .font(.system(size: 11))
-                .foregroundColor(.white.opacity(0.5))
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 20)
-                .padding(.bottom, 12)
-
             Divider().background(Color.white.opacity(0.1))
-
-            // Preset list
-            ScrollView {
-                VStack(spacing: 6) {
-                    ForEach(store.presets) { preset in
-                        PresetRow(
-                            preset: preset,
-                            onEdit: { editing = preset },
-                            onDelete: { store.delete(id: preset.id) }
-                        )
-                    }
-                    if store.presets.isEmpty {
-                        Text("No presets — tap + to add one")
-                            .font(.system(size: 12))
-                            .foregroundColor(.white.opacity(0.4))
-                            .padding(.top, 40)
-                    }
-                }
-                .padding(12)
-            }
+            PresetsListContent(textStyle: .darkOnLight(false))
         }
         .frame(width: 460, height: 520)
         .background(
@@ -166,6 +128,84 @@ private struct PresetSettingsContentView: View {
             RoundedRectangle(cornerRadius: 20)
                 .strokeBorder(.white.opacity(0.1), lineWidth: 0.5)
         )
+    }
+}
+
+// MARK: - Reusable Presets List
+
+/// Scrollable presets list + add button + edit sheets. Used inside both
+/// the legacy PresetSettingsWindow popup (dark-on-dark) and the new
+/// SystemSettings "Launch Presets" tab (dark-on-lime). `textStyle` lets
+/// the embedder pick foreground colors that work with their background.
+struct PresetsListContent: View {
+    enum TextStyle {
+        case darkOnLight(Bool)  // true → black text (lime bg), false → white text (dark bg)
+    }
+    let textStyle: TextStyle
+
+    @ObservedObject private var store = PresetStore.shared
+    @State private var editing: LaunchPreset?
+    @State private var showingNew = false
+
+    private var isLight: Bool {
+        if case .darkOnLight(true) = textStyle { return true }
+        return false
+    }
+    private var primaryColor: Color { isLight ? .black : .white }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            // Hint + Add button row
+            HStack {
+                Text(L10n.presetsHint)
+                    .font(.system(size: 11))
+                    .foregroundColor(primaryColor.opacity(0.6))
+                Spacer()
+                Button {
+                    showingNew = true
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "plus.circle.fill")
+                            .font(.system(size: 13))
+                        Text(L10n.addPreset)
+                            .font(.system(size: 11, weight: .semibold))
+                    }
+                    .foregroundColor(primaryColor.opacity(0.8))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(
+                        RoundedRectangle(cornerRadius: 6)
+                            .fill(primaryColor.opacity(0.1))
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 12)
+            .padding(.bottom, 8)
+
+            // Preset list
+            ScrollView {
+                VStack(spacing: 6) {
+                    ForEach(store.presets) { preset in
+                        PresetRow(
+                            preset: preset,
+                            primaryColor: primaryColor,
+                            onEdit: { editing = preset },
+                            onDelete: { store.delete(id: preset.id) }
+                        )
+                    }
+                    if store.presets.isEmpty {
+                        Text(L10n.noPresets)
+                            .font(.system(size: 12))
+                            .foregroundColor(primaryColor.opacity(0.5))
+                            .padding(.top, 40)
+                    }
+                }
+                .padding(.horizontal, 12)
+                .padding(.bottom, 12)
+            }
+        }
         .sheet(item: $editing) { preset in
             PresetEditorSheet(preset: preset, isNew: false) { updated in
                 store.update(updated)
@@ -190,6 +230,7 @@ private struct PresetSettingsContentView: View {
 
 private struct PresetRow: View {
     let preset: LaunchPreset
+    var primaryColor: Color = .white
     let onEdit: () -> Void
     let onDelete: () -> Void
 
@@ -197,16 +238,16 @@ private struct PresetRow: View {
         HStack(spacing: 12) {
             Image(systemName: preset.icon ?? "terminal")
                 .font(.system(size: 14))
-                .foregroundColor(.white.opacity(0.7))
+                .foregroundColor(primaryColor.opacity(0.7))
                 .frame(width: 24)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(preset.name)
                     .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(.white.opacity(0.9))
+                    .foregroundColor(primaryColor.opacity(0.9))
                 Text(preset.command)
                     .font(.system(size: 10, design: .monospaced))
-                    .foregroundColor(.white.opacity(0.5))
+                    .foregroundColor(primaryColor.opacity(0.55))
                     .lineLimit(1)
             }
 
@@ -215,14 +256,14 @@ private struct PresetRow: View {
             Button(action: onEdit) {
                 Image(systemName: "pencil")
                     .font(.system(size: 12))
-                    .foregroundColor(.white.opacity(0.5))
+                    .foregroundColor(primaryColor.opacity(0.55))
             }
             .buttonStyle(.plain)
 
             Button(action: onDelete) {
                 Image(systemName: "trash")
                     .font(.system(size: 12))
-                    .foregroundColor(.red.opacity(0.7))
+                    .foregroundColor(Color(red: 0.75, green: 0.15, blue: 0.15))
             }
             .buttonStyle(.plain)
         }
@@ -230,7 +271,7 @@ private struct PresetRow: View {
         .padding(.vertical, 10)
         .background(
             RoundedRectangle(cornerRadius: 8)
-                .fill(.white.opacity(0.04))
+                .fill(primaryColor.opacity(0.08))
         )
     }
 }

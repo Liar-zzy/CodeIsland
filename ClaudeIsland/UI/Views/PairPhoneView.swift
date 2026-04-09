@@ -136,7 +136,7 @@ private struct QRPairingContentView: View {
     /// Solid brand fill for the popup card — bold, opaque, always readable.
     /// Replaces the old ultraThinMaterial which was so transparent the
     /// window was literally hard to locate against a similar background.
-    private static let cardFill = Color(red: 0xD7/255, green: 0xFE/255, blue: 0x62/255)
+    private static let cardFill = Color(red: 0xCA/255, green: 0xFF/255, blue: 0x00/255)
     /// Near-black text that reads comfortably on the lime card.
     private static let cardText = Color.black
 
