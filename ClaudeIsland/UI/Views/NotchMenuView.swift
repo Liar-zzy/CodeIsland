@@ -34,7 +34,7 @@ struct NotchMenuView: View {
                         Text(L10n.back)
                             .font(.system(size: 11, weight: .medium))
                     }
-                    .foregroundColor(.white.opacity(0.6))
+                    .opacity(0.6)
                 }
                 .buttonStyle(.plain)
 
