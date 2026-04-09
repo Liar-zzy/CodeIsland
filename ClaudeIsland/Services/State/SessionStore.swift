@@ -145,7 +145,13 @@ actor SessionStore {
         var session = sessions[sessionId] ?? createSession(from: event)
 
         session.pid = event.pid
-        if let pid = event.pid {
+        if event.source == "codex" {
+            // Codex sessions: always set "Codex" as terminal app, skip process tree
+            session.terminalApp = "Codex"
+            if let transcriptPath = event.transcriptPath, !transcriptPath.isEmpty {
+                session.codexTranscriptPath = transcriptPath
+            }
+        } else if let pid = event.pid {
             let tree = ProcessTreeBuilder.shared.buildTree()
             session.isInTmux = ProcessTreeBuilder.shared.isInTmux(pid: pid, tree: tree)
             // Detect terminal app name
@@ -154,6 +160,10 @@ actor SessionStore {
                let termInfo = tree[termPid] {
                 let command = URL(fileURLWithPath: termInfo.command).lastPathComponent
                 session.terminalApp = TerminalAppRegistry.displayName(for: command)
+            }
+            // Fall back to env-detected terminal hint from hook script
+            if session.terminalApp == nil {
+                session.terminalApp = event.terminalApp
             }
             if isNewSession {
                 DebugLogger.log("Hook", "pid=\(pid) tmux=\(session.isInTmux) termApp=\(session.terminalApp ?? "nil")")
@@ -193,8 +203,10 @@ actor SessionStore {
         }
 
         // Parse conversationInfo only when needed (not on every event — too expensive for large JSONL)
-        if session.conversationInfo.firstUserMessage == nil ||
-           (session.phase == .waitingForInput && session.conversationInfo.lastMessage == nil) {
+        // Skip for Codex sessions — they have no Claude JSONL file
+        if event.source != "codex" &&
+           (session.conversationInfo.firstUserMessage == nil ||
+           (session.phase == .waitingForInput && session.conversationInfo.lastMessage == nil)) {
             DebugLogger.log("Store", "Parsing conversationInfo for \(sessionId.prefix(8))")
             let conversationInfo = await ConversationParser.shared.parse(
                 sessionId: sessionId,
@@ -209,7 +221,12 @@ actor SessionStore {
         sessions[sessionId] = session
         publishState()
 
-        if event.shouldSyncFile {
+        if event.source == "codex" {
+            // Codex: sync chat history from rollout JSONL instead of Claude JSONL
+            if let transcriptPath = session.codexTranscriptPath, event.shouldSyncFile {
+                scheduleCodexHistorySync(sessionId: sessionId, transcriptPath: transcriptPath)
+            }
+        } else if event.shouldSyncFile {
             scheduleFileSync(sessionId: sessionId, cwd: event.cwd)
         }
     }
@@ -962,7 +979,32 @@ actor SessionStore {
     // MARK: - History Loading
 
     private func loadHistoryFromFile(sessionId: String, cwd: String) async {
-        // Parse file asynchronously
+        // Codex sessions: parse rollout JSONL instead of Claude JSONL
+        if let transcriptPath = sessions[sessionId]?.codexTranscriptPath, !transcriptPath.isEmpty {
+            let messages = CodexChatHistoryParser.parse(transcriptPath: transcriptPath)
+            let firstUserMsg = messages.first(where: { $0.role == .user })
+            let lastUserMsg = messages.last(where: { $0.role == .user })
+            let conversationInfo = ConversationInfo(
+                summary: nil,
+                lastMessage: messages.last?.textContent,
+                lastMessageRole: messages.last?.role.rawValue,
+                lastToolName: nil,
+                firstUserMessage: firstUserMsg?.textContent,
+                latestUserMessage: lastUserMsg?.textContent,
+                lastUserMessageDate: lastUserMsg?.timestamp
+            )
+            await process(.historyLoaded(
+                sessionId: sessionId,
+                messages: messages,
+                completedTools: [],
+                toolResults: [:],
+                structuredResults: [:],
+                conversationInfo: conversationInfo
+            ))
+            return
+        }
+
+        // Claude sessions: parse from JSONL
         let messages = await ConversationParser.shared.parseFullConversation(
             sessionId: sessionId,
             cwd: cwd
@@ -1071,6 +1113,38 @@ actor SessionStore {
             )
 
             await self?.process(.fileUpdated(payload))
+        }
+    }
+
+    private func scheduleCodexHistorySync(sessionId: String, transcriptPath: String) {
+        cancelPendingSync(sessionId: sessionId)
+
+        pendingSyncs[sessionId] = Task { [weak self, syncDebounceNs] in
+            try? await Task.sleep(nanoseconds: syncDebounceNs)
+            guard !Task.isCancelled else { return }
+
+            let messages = CodexChatHistoryParser.parse(transcriptPath: transcriptPath)
+            guard !messages.isEmpty else { return }
+
+            let firstUserMsg = messages.first(where: { $0.role == .user })
+            let lastUserMsg = messages.last(where: { $0.role == .user })
+            let conversationInfo = ConversationInfo(
+                summary: nil,
+                lastMessage: messages.last?.textContent,
+                lastMessageRole: messages.last?.role.rawValue,
+                lastToolName: nil,
+                firstUserMessage: firstUserMsg?.textContent,
+                latestUserMessage: lastUserMsg?.textContent,
+                lastUserMessageDate: lastUserMsg?.timestamp
+            )
+            await self?.process(.historyLoaded(
+                sessionId: sessionId,
+                messages: messages,
+                completedTools: [],
+                toolResults: [:],
+                structuredResults: [:],
+                conversationInfo: conversationInfo
+            ))
         }
     }
 

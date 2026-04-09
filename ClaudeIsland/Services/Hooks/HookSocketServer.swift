@@ -12,7 +12,7 @@ import os.log
 /// Logger for hook socket server
 private let logger = Logger(subsystem: "com.codeisland", category: "Hooks")
 
-/// Event received from Claude Code hooks
+/// Event received from Claude Code or Codex hooks
 struct HookEvent: Codable, Sendable {
     let sessionId: String
     let cwd: String
@@ -25,6 +25,12 @@ struct HookEvent: Codable, Sendable {
     let toolUseId: String?
     let notificationType: String?
     let message: String?
+    /// "codex" for Codex hook events; nil for Claude Code hook events
+    let source: String?
+    /// Rollout file path for Codex sessions (passed via transcript_path)
+    let transcriptPath: String?
+    /// Env-detected terminal app hint from hook script (fallback when process tree fails)
+    let terminalApp: String?
 
     enum CodingKeys: String, CodingKey {
         case sessionId = "session_id"
@@ -32,11 +38,13 @@ struct HookEvent: Codable, Sendable {
         case toolInput = "tool_input"
         case toolUseId = "tool_use_id"
         case notificationType = "notification_type"
-        case message
+        case message, source
+        case transcriptPath = "transcript_path"
+        case terminalApp = "terminal_app"
     }
 
     /// Create a copy with updated toolUseId
-    init(sessionId: String, cwd: String, event: String, status: String, pid: Int?, tty: String?, tool: String?, toolInput: [String: AnyCodable]?, toolUseId: String?, notificationType: String?, message: String?) {
+    init(sessionId: String, cwd: String, event: String, status: String, pid: Int?, tty: String?, tool: String?, toolInput: [String: AnyCodable]?, toolUseId: String?, notificationType: String?, message: String?, source: String? = nil, transcriptPath: String? = nil, terminalApp: String? = nil) {
         self.sessionId = sessionId
         self.cwd = cwd
         self.event = event
@@ -48,6 +56,9 @@ struct HookEvent: Codable, Sendable {
         self.toolUseId = toolUseId
         self.notificationType = notificationType
         self.message = message
+        self.source = source
+        self.transcriptPath = transcriptPath
+        self.terminalApp = terminalApp
     }
 
     var sessionPhase: SessionPhase {

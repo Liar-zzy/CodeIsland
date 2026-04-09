@@ -28,11 +28,14 @@ struct TerminalAppRegistry: Sendable {
         "urxvt",
         "xterm",
         "cmux",
+        "Electron",       // VS Code (macOS binary name in ps)
         "Code",           // VS Code
         "Code - Insiders",
         "Cursor",
         "Windsurf",
-        "zed"
+        "codex",          // Codex CLI
+        "zed",
+        "Zellij"
     ]
 
     /// Bundle identifiers for terminal apps (for window enumeration)
@@ -71,6 +74,9 @@ struct TerminalAppRegistry: Sendable {
             ("hyper", "Hyper"),
             ("tabby", "Tabby"),
             ("cmux", "cmux"),
+            ("zellij", "Zellij"),
+            ("codex", "Codex"),      // must be before "code" to avoid VS Code match
+            ("electron", "VS Code"), // VS Code binary name as seen in ps on macOS
             ("code", "VS Code"),
             ("cursor", "Cursor"),
             ("windsurf", "Windsurf"),

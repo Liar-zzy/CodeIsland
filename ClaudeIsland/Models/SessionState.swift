@@ -24,6 +24,8 @@ struct SessionState: Equatable, Identifiable, Sendable {
     var isInTmux: Bool
     /// Detected terminal app name (e.g., "Ghostty", "Warp", "iTerm2", "cmux", "Terminal")
     var terminalApp: String?
+    /// Codex rollout transcript path (non-nil for Codex sessions)
+    var codexTranscriptPath: String?
 
     // MARK: - State Machine
 

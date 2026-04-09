@@ -49,6 +49,33 @@ def get_tty():
     return None
 
 
+def detect_terminal_app():
+    """Detect terminal from environment variables — more reliable than process tree on macOS."""
+    env = os.environ
+    # Check multiplexers first (innermost layer)
+    if env.get("ZELLIJ") is not None:   # ZELLIJ key present (value may be "0")
+        return "Zellij"
+    if env.get("TMUX"):
+        return "tmux"
+    # Then outer terminal emulator
+    if env.get("GHOSTTY_RESOURCES_DIR") or env.get("TERM_PROGRAM") == "ghostty":
+        return "Ghostty"
+    if env.get("ITERM_SESSION_ID") or env.get("LC_TERMINAL") == "iTerm2":
+        return "iTerm2"
+    term = env.get("TERM_PROGRAM", "").lower()
+    if term == "apple_terminal":
+        return "Terminal"
+    if "warp" in term:
+        return "Warp"
+    if "wezterm" in term:
+        return "WezTerm"
+    if "vscode" in term:
+        return "VS Code"
+    if env.get("CMUX_SOCKET_PATH"):
+        return "cmux"
+    return None
+
+
 def send_event(state):
     """Send event to app, return response if any"""
     try:
@@ -87,6 +114,10 @@ def main():
         sys.exit(0)
     tool_input = data.get("tool_input", {})
 
+    # Detect Codex events: Codex always includes "model" as a required non-optional field.
+    # Claude Code never sends "model" in its hook payload.
+    is_codex = "model" in data
+
     # Get process info
     claude_pid = os.getppid()
     tty = get_tty()
@@ -99,6 +130,19 @@ def main():
         "pid": claude_pid,
         "tty": tty,
     }
+
+    # For non-Codex sessions, send env-detected terminal as a hint for Swift fallback
+    if not is_codex:
+        terminal_hint = detect_terminal_app()
+        if terminal_hint:
+            state["terminal_app"] = terminal_hint
+
+    # For Codex sessions, pass source marker and transcript path
+    if is_codex:
+        state["source"] = "codex"
+        transcript_path = data.get("transcript_path", "")
+        if transcript_path:
+            state["transcript_path"] = transcript_path
 
     # Map events to status
     if event == "UserPromptSubmit":

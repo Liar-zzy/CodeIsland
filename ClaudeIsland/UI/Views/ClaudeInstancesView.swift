@@ -521,17 +521,20 @@ struct InstanceRow: View {
         let tag = terminalTag.lowercased()
         if tag.contains("cmux") { return Color(red: 0.56, green: 0.79, blue: 0.98) }      // blue
         if tag.contains("ghostty") { return Color(red: 0.7, green: 0.6, blue: 1.0) }       // purple
+        if tag.contains("zellij") { return Color(red: 0.3, green: 0.85, blue: 0.75) }     // teal
         if tag.contains("iterm") { return Color(red: 0.29, green: 0.87, blue: 0.5) }       // green
         if tag.contains("warp") { return Color(red: 0.96, green: 0.62, blue: 0.04) }       // amber
         if tag.contains("cursor") { return Color(red: 0.4, green: 0.91, blue: 0.98) }      // cyan
+        if tag.contains("codex") { return Color(red: 1.0, green: 0.55, blue: 0.0) }        // orange
         if tag.contains("code") { return Color(red: 0.29, green: 0.67, blue: 0.96) }       // vs blue
         if tag.contains("kitty") { return Color(red: 0.94, green: 0.5, blue: 0.5) }        // salmon
+        if tag.contains("claude") { return Self.claudeTagFg }                               // claude blue
         return Color.white.opacity(0.4)
     }
 
-    /// Terminal app name — auto-detected from process tree
+    /// Terminal app name — auto-detected from process tree; falls back to "claude" for plain CLI sessions
     private var terminalTag: String {
-        session.terminalApp ?? (session.isInTmux ? "tmux" : "term")
+        session.terminalApp ?? (session.isInTmux ? "tmux" : "claude")
     }
 
     /// Accent color based on phase (used for status dot)
