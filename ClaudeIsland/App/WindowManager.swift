@@ -34,6 +34,14 @@ class WindowManager {
         windowController = NotchWindowController(screen: screen)
         windowController?.showWindow(nil)
 
+        // Hook the notch window up to the customization store so
+        // theme / font / visibility / geometry changes reapply
+        // in real time. The controller owns the subscription and
+        // releases it on deinit.
+        MainActor.assumeIsolated {
+            windowController?.attachStore(NotchCustomizationStore.shared)
+        }
+
         return windowController
     }
 }

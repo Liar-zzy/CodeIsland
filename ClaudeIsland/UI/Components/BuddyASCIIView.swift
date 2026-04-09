@@ -500,7 +500,7 @@ struct BuddyASCIIView: View {
             if isPetting {
                 Text(petHearts[petTick % petHearts.count])
                     .font(.system(size: 10, design: .monospaced))
-                    .foregroundColor(.red)
+                    .foregroundColor(Color("NotchStatus/Error"))
                     .transition(.opacity)
             }
 

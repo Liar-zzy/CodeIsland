@@ -21,12 +21,12 @@ struct PairPhoneRow: View {
             HStack(spacing: 10) {
                 Image(systemName: "iphone.radiowaves.left.and.right")
                     .font(.system(size: 12))
-                    .foregroundColor(.white.opacity(isHovered ? 1 : 0.6))
+                    .opacity(isHovered ? 1 : 0.6)
                     .frame(width: 16)
 
                 Text("Pair iPhone")
                     .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(.white.opacity(isHovered ? 1 : 0.7))
+                    .opacity(isHovered ? 1 : 0.7)
 
                 Spacer()
 
@@ -40,7 +40,7 @@ struct PairPhoneRow: View {
                 } else {
                     Image(systemName: "qrcode")
                         .font(.system(size: 11))
-                        .foregroundColor(.white.opacity(0.3))
+                        .opacity(0.3)
                 }
             }
             .padding(.horizontal, 12)
@@ -136,7 +136,7 @@ private struct QRPairingContentView: View {
     /// Solid brand fill for the popup card — bold, opaque, always readable.
     /// Replaces the old ultraThinMaterial which was so transparent the
     /// window was literally hard to locate against a similar background.
-    private static let cardFill = Color(red: 0xD7/255, green: 0xFE/255, blue: 0x62/255)
+    private static let cardFill = Color(red: 0xCA/255, green: 0xFF/255, blue: 0x00/255)
     /// Near-black text that reads comfortably on the lime card.
     private static let cardText = Color.black
 

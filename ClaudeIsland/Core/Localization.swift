@@ -72,6 +72,100 @@ enum L10n {
     static var enable: String { tr("Enable", "启用") }
     static var enabled: String { tr("On", "已开启") }
 
+    // MARK: - Settings window
+    static var systemSettings: String { tr("System Settings", "系统设置") }
+    static var openSettings: String { tr("Settings", "设置") }
+    static var tabGeneral: String { tr("General", "通用") }
+    static var tabAppearance: String { tr("Appearance", "外观") }
+    static var tabNotifications: String { tr("Notifications", "通知") }
+    static var tabBehavior: String { tr("Behavior", "行为") }
+    static var tabAdvanced: String { tr("Advanced", "高级") }
+    static var tabAbout: String { tr("About", "关于") }
+    static var tabPresets: String { tr("Launch Presets", "启动预设") }
+    static var tabCodeLight: String { tr("CodeLight", "CodeLight") }
+    static var pairedIPhones: String { tr("Paired iPhones", "已配对 iPhone") }
+    static var pairNewPhone: String { tr("Pair New iPhone", "配对新 iPhone") }
+    static var launchPresetsSection: String { tr("Launch Presets", "启动预设") }
+    static var addPreset: String { tr("New Preset", "新建预设") }
+    static var noPresets: String { tr("No presets yet — tap + to add one", "还没有预设，点击 + 添加") }
+    static var presetsHint: String { tr("Paired iPhones can launch these as new cmux sessions", "配对的 iPhone 可以用这些预设启动新的 cmux 会话") }
+    static var behavior: String { tr("Behavior", "行为") }
+    static var system: String { tr("System", "系统") }
+    static var appearanceSection: String { tr("Appearance", "外观") }
+    static var usageWarningThreshold: String { tr("Usage Warning", "用量警告") }
+    static var clearEndedSessions: String { tr("Clear Ended Sessions", "清除已结束会话") }
+    static var feedback: String { tr("Feedback", "反馈") }
+    static var starOnGitHub: String { tr("Star on GitHub", "GitHub 点星") }
+    static var wechatLabel: String { tr("WeChat", "微信") }
+    static var maintainedTagline: String { tr("Actively maintained · Your star keeps us going!", "持续更新中 · Star 是我们最大的动力！") }
+
+    // MARK: - Daily report
+    static var yesterdayLabel: String { tr("Yesterday", "昨天") }
+    static var turnsLabel: String { tr("Turns", "轮次") }
+    static var focusLabel: String { tr("Focus", "专注时长") }
+    static var linesLabel: String { tr("Lines", "代码行") }
+    static var sessionsLabel: String { tr("Sessions", "会话") }
+    static var projectsLabel: String { tr("Projects", "项目") }
+    static var peakBurstLabel: String { tr("Peak", "最长专注") }
+    static var filesLabel: String { tr("Files", "文件") }
+    static var peakHourLabel: String { tr("Peak hour", "活跃时段") }
+    static var topToolsHeader: String { tr("Top tools", "常用工具") }
+    static var topSkillsHeader: String { tr("Top skills", "常用 Skills") }
+    static var topMCPHeader: String { tr("MCP plugins", "MCP 调用") }
+    static var primaryProjectHeader: String { tr("Primary project", "主要项目") }
+
+    // Day / Week view switcher
+    static var dayViewTab: String { tr("Day", "日") }
+    static var weekViewTab: String { tr("Week", "周") }
+
+    // Week view extras
+    static var weekHighlightsHeader: String { tr("Week highlights", "本周高光") }
+    static var streakLabel: String { tr("Streak", "连续天数") }
+    static func streakDays(_ days: Int) -> String {
+        tr(days == 1 ? "\(days) day" : "\(days) days", "\(days) 天")
+    }
+    static var vsLastWeekHeader: String { tr("vs. last week", "对比上周") }
+    static func peakDayHighlight(_ weekdayName: String, turns: Int) -> String {
+        tr("Peak day: \(weekdayName) · \(turns) turns",
+           "峰值日: \(weekdayName) · \(turns) 轮")
+    }
+    static func peakBurstHighlight(_ weekdayName: String, minutes: String) -> String {
+        tr("Longest focus: \(minutes) on \(weekdayName)",
+           "最长专注: \(minutes)（\(weekdayName)）")
+    }
+    static func primaryProjectHighlight(_ project: String) -> String {
+        tr("Main project: \(project)", "主要项目: \(project)")
+    }
+    static var noActivityThisWeek: String { tr("No activity this week yet.", "本周还没有活动") }
+    static var sparklineLabel: String { tr("Daily focus", "每日专注") }
+    /// Prefix for the sparkline normalization ceiling, e.g. "max 4h13m".
+    static var sparklineMaxPrefix: String { tr("max", "最高") }
+
+    // Hero card expand / collapse
+    static var expandLabel: String { tr("Show more", "查看更多") }
+    static var collapseLabel: String { tr("Show less", "收起") }
+
+    // First-launch loading state
+    static var analyzingTitle: String { tr("Crunching your numbers…", "正在统计你的数据…") }
+    static var analyzingSubtitle: String {
+        tr("Scanning the last 14 days of Claude activity. First launch takes a moment.",
+           "扫描过去 14 天的 Claude 活动，首次启动稍等一下。")
+    }
+
+    static func dailyTaglineWeek(_ focus: String) -> String {
+        tr("You worked with Claude for \(focus) this week — here's the recap.",
+           "本周你和 Claude 协作了 \(focus) — 一周回顾")
+    }
+    /// Tagline under the header, filled with the focus duration.
+    static func dailyTagline(_ focus: String) -> String {
+        tr("You worked with Claude for \(focus) — here's the recap.",
+           "你和 Claude 协作了 \(focus) — 昨日回顾")
+    }
+    static func focusHelperDesc(_ sessions: Int) -> String {
+        tr("Active time across \(sessions) sessions (idle gaps excluded)",
+           "跨 \(sessions) 个会话的活跃时长（不含空闲）")
+    }
+
     // MARK: - Notch collapsed status
 
     static var approve: String { tr("approve", "审批") }
@@ -184,4 +278,53 @@ enum L10n {
     static var smartSuppression: String { tr("Smart Suppression", "智能抑制") }
     static var autoCollapseOnMouseLeave: String { tr("Auto-Collapse on Leave", "离开时自动收起") }
     static var compactCollapsed: String { tr("Compact Notch", "紧凑刘海") }
+
+    // MARK: - Notch customization
+    //
+    // Deviation from spec: the spec (Section 4.5) lists these keys
+    // for `Localizable.xcstrings`, but this project currently uses
+    // the hand-rolled `L10n` helper (en + zh-Hans as Swift string
+    // pairs). Strings added here follow the established pattern
+    // and match the voice of surrounding entries. A future migration
+    // to `.xcstrings` can pick them up mechanically from this file.
+
+    static var notchSectionHeader: String { tr("Notch", "灵动岛") }
+    static var notchTheme: String { tr("Theme", "主题") }
+    static var notchThemeClassic: String { tr("Classic", "经典") }
+    static var notchThemePaper: String { tr("Paper", "纸张") }
+    static var notchThemeNeonLime: String { tr("Neon Lime", "霓虹青柠") }
+    static var notchThemeCyber: String { tr("Cyber", "赛博") }
+    static var notchThemeMint: String { tr("Mint", "薄荷") }
+    static var notchThemeSunset: String { tr("Sunset", "日落") }
+    static var notchFontSize: String { tr("Font Size", "字号") }
+    static var notchFontSmall: String { tr("S", "小") }
+    static var notchFontDefault: String { tr("M", "中") }
+    static var notchFontLarge: String { tr("L", "大") }
+    static var notchFontXLarge: String { tr("XL", "特大") }
+    static var notchFontSmallFull: String { tr("Small", "小") }
+    static var notchFontDefaultFull: String { tr("Default", "默认") }
+    static var notchFontLargeFull: String { tr("Large", "大") }
+    static var notchFontXLargeFull: String { tr("Extra Large", "特大") }
+    static var notchShowBuddy: String { tr("Show Buddy", "显示宠物") }
+    static var notchShowUsageBar: String { tr("Show Usage Bar", "显示用量条") }
+    static var notchHardwareMode: String { tr("Hardware Notch", "硬件刘海") }
+    static var notchHardwareAuto: String { tr("Auto", "自动") }
+    static var notchHardwareForceVirtual: String { tr("Force Virtual", "强制虚拟") }
+    static var notchCustomizeButton: String { tr("Customize Size & Position…", "自定义尺寸与位置…") }
+    static var notchEditSave: String { tr("Save", "保存") }
+    static var notchEditCancel: String { tr("Cancel", "取消") }
+    static var notchEditNotchPreset: String { tr("Notch Preset", "贴合刘海") }
+    static var notchEditDragMode: String { tr("Drag Mode", "拖动模式") }
+    static var notchEditReset: String { tr("Reset", "复位") }
+    static var notchEditPresetDisabledTooltip: String { tr("Your device doesn't have a hardware notch", "你的设备没有硬件刘海") }
+    static func notchThemeName(_ id: NotchThemeID) -> String {
+        switch id {
+        case .classic:  return notchThemeClassic
+        case .paper:    return notchThemePaper
+        case .neonLime: return notchThemeNeonLime
+        case .cyber:    return notchThemeCyber
+        case .mint:     return notchThemeMint
+        case .sunset:   return notchThemeSunset
+        }
+    }
 }

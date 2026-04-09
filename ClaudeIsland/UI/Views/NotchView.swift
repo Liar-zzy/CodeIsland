@@ -33,6 +33,7 @@ struct NotchView: View {
     @AppStorage("smartSuppression") private var smartSuppression: Bool = true
     @AppStorage("autoCollapseOnMouseLeave") private var autoCollapseOnMouseLeave: Bool = true
     @AppStorage("compactCollapsed") private var compactCollapsed: Bool = false
+    @ObservedObject private var notchStore: NotchCustomizationStore = .shared
 
     @Namespace private var activityNamespace
 
@@ -137,23 +138,27 @@ struct NotchView: View {
         )
     }
 
-    /// Extra width for expanding activities (like Dynamic Island)
-    /// Compact mode: minimal width (dot + icon + count only), but wide enough to clear the notch
-    /// Full mode: original 240px behavior
+    /// Extra width for expanding activities (like Dynamic Island).
+    ///
+    /// Reads from `notchStore.customization.maxWidth` so the live edit
+    /// "resize" arrow buttons visibly grow / shrink the notch as the
+    /// user drives the slider. The user's `maxWidth` is the total
+    /// closed-with-content width — subtracting the hardware notch
+    /// width yields the wing expansion.
+    ///
+    /// Compact mode caps at 100pt regardless of the user's max so the
+    /// dot+icon+count layout never overflows the visible notch ring.
+    /// Full mode honors the user's max directly. Idle state (no
+    /// active sessions) is always 0 — the notch shrinks tight around
+    /// the hardware shape.
     private var expansionWidth: CGFloat {
+        guard hasActiveSessions else { return 0 }
+        let userMax = notchStore.customization.maxWidth
+        let userExpansion = max(0, userMax - closedNotchSize.width)
         if compactCollapsed {
-            // Compact: dot + icon + count, must be wide enough to not be hidden by notch
-            if hasActiveSessions {
-                return 100
-            }
-            return 0
-        } else {
-            // Full: original behavior
-            if hasActiveSessions {
-                return 240
-            }
-            return 0
+            return min(100, userExpansion)
         }
+        return userExpansion
     }
 
     private var notchSize: CGSize {
@@ -195,6 +200,17 @@ struct NotchView: View {
     private let openAnimation = Animation.spring(response: 0.42, dampingFraction: 0.8, blendDuration: 0)
     private let closeAnimation = Animation.spring(response: 0.45, dampingFraction: 1.0, blendDuration: 0)
 
+    /// User-customized horizontal offset of the notch, clamped at
+    /// render time so an off-screen stored value on a smaller
+    /// secondary display never bleeds past the edge. Spec 5.5.
+    private var clampedHorizontalOffset: CGFloat {
+        NotchHardwareDetector.clampedHorizontalOffset(
+            storedOffset: notchStore.customization.horizontalOffset,
+            runtimeWidth: viewModel.status == .opened ? notchSize.width : closedContentWidth,
+            screenWidth: viewModel.screenRect.width
+        )
+    }
+
     // MARK: - Body
 
     var body: some View {
@@ -202,6 +218,7 @@ struct NotchView: View {
             // Outer container does NOT receive hits - only the notch content does
             VStack(spacing: 0) {
                 notchLayout
+                    .notchPalette()
                     .frame(
                         maxWidth: viewModel.status == .opened ? notchSize.width : closedContentWidth,
                         alignment: .top
@@ -213,13 +230,15 @@ struct NotchView: View {
                             : cornerRadiusInsets.closed.bottom
                     )
                     .padding([.horizontal, .bottom], viewModel.status == .opened ? 12 : 0)
-                    .background(.black)
+                    .background(NotchPalette.for(notchStore.customization.theme).bg)
+                    .animation(.easeInOut(duration: 0.3), value: notchStore.customization.theme)
                     .clipShape(currentNotchShape)
                     .overlay(alignment: .top) {
                         Rectangle()
-                            .fill(.black)
+                            .fill(NotchPalette.for(notchStore.customization.theme).bg)
                             .frame(height: 1)
                             .padding(.horizontal, topCornerRadius)
+                            .animation(.easeInOut(duration: 0.3), value: notchStore.customization.theme)
                     }
                     .shadow(
                         color: (viewModel.status == .opened || isHovering) ? .black.opacity(0.7) : .clear,
@@ -267,6 +286,7 @@ struct NotchView: View {
                             }
                         }
                     )
+                    .offset(x: clampedHorizontalOffset)
             }
         }
         .opacity(isVisible ? 1 : 0)
@@ -291,6 +311,12 @@ struct NotchView: View {
         }
         .onChange(of: expansionWidth) { _, newWidth in
             viewModel.currentExpansionWidth = newWidth
+        }
+        .task {
+            // Sync the initial expansion width into the view model on
+            // first appearance so the hit-test region matches the
+            // visible notch from the very first frame.
+            viewModel.currentExpansionWidth = expansionWidth
         }
     }
 
@@ -378,8 +404,8 @@ struct NotchView: View {
                 }
             } label: {
                 Image(systemName: viewModel.contentType == .menu ? "xmark" : "line.3.horizontal")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(.white.opacity(0.4))
+                    .notchFont(11, weight: .medium)
+                    .notchSecondaryForeground()
                     .frame(width: 22, height: 22)
                     .contentShape(Rectangle())
             }
@@ -715,6 +741,7 @@ struct CollapsedNotchContent: View {
     @State private var pulsePhase: Bool = false
     @ObservedObject private var buddyReader = BuddyReader.shared
     @AppStorage("usePixelCat") private var usePixelCat: Bool = false
+    @ObservedObject private var notchStore: NotchCustomizationStore = .shared
 
     // MARK: - Unattended Task Alert
 
@@ -779,22 +806,24 @@ struct CollapsedNotchContent: View {
                     .shadow(color: effectiveStatusDotColor.opacity(0.5), radius: 3)
                     .opacity(pulsePhase ? 1.0 : 0.5)
 
-                // Buddy icon
-                if usePixelCat {
-                    PixelCharacterView(state: mostUrgentState)
-                        .scaleEffect(0.28)
-                        .frame(width: 16, height: 16)
-                        .matchedGeometryEffect(id: "crab", in: activityNamespace, isSource: true)
-                } else if let buddy = buddyReader.buddy {
-                    EmojiPixelView(emoji: buddy.species.emoji, style: .wave)
-                        .scaleEffect(0.30)
-                        .frame(width: 16, height: 16)
-                        .matchedGeometryEffect(id: "crab", in: activityNamespace, isSource: true)
-                } else {
-                    PixelCharacterView(state: mostUrgentState)
-                        .scaleEffect(0.28)
-                        .frame(width: 16, height: 16)
-                        .matchedGeometryEffect(id: "crab", in: activityNamespace, isSource: true)
+                // Buddy icon — honors the showBuddy preference.
+                if notchStore.customization.showBuddy {
+                    if usePixelCat {
+                        PixelCharacterView(state: mostUrgentState)
+                            .scaleEffect(0.28)
+                            .frame(width: 16, height: 16)
+                            .matchedGeometryEffect(id: "crab", in: activityNamespace, isSource: true)
+                    } else if let buddy = buddyReader.buddy {
+                        EmojiPixelView(emoji: buddy.species.emoji, style: .wave)
+                            .scaleEffect(0.30)
+                            .frame(width: 16, height: 16)
+                            .matchedGeometryEffect(id: "crab", in: activityNamespace, isSource: true)
+                    } else {
+                        PixelCharacterView(state: mostUrgentState)
+                            .scaleEffect(0.28)
+                            .frame(width: 16, height: 16)
+                            .matchedGeometryEffect(id: "crab", in: activityNamespace, isSource: true)
+                    }
                 }
 
                 // Carousel status text — hidden in compact mode
@@ -818,14 +847,14 @@ struct CollapsedNotchContent: View {
                 // Project name — hidden in compact mode
                 if !compactMode, let parts = activityTextParts {
                     Text(parts.project)
-                        .font(.system(size: 13, weight: .medium, design: .monospaced))
-                        .foregroundColor(.white.opacity(0.6))
+                        .notchFont(13, weight: .medium, design: .monospaced)
+                        .notchSecondaryForeground()
                         .lineLimit(1)
                 }
 
                 if activeSessionCount > 0 {
                     Text("\u{00D7}\(activeSessionCount)")
-                        .font(.system(size: 13, weight: .medium, design: .monospaced))
+                        .notchFont(13, weight: .medium, design: .monospaced)
                         .foregroundColor(badgeColor)
                 }
             }
@@ -886,18 +915,18 @@ struct CollapsedNotchContent: View {
         if isWorkingStatus, let label = statusLabelWithoutDots {
             HStack(spacing: 0) {
                 Text(label)
-                    .font(.system(size: 13, weight: .medium, design: .monospaced))
+                    .notchFont(13, weight: .medium, design: .monospaced)
                     .foregroundStyle(statusGradient)
                     .lineLimit(1)
 
                 AnimatedEllipsis()
-                    .font(.system(size: 13, weight: .medium, design: .monospaced))
+                    .notchFont(13, weight: .medium, design: .monospaced)
                     .foregroundStyle(statusGradient)
 
             }
         } else if let parts = activityTextParts {
             Text(parts.status)
-                .font(.system(size: 13, weight: .medium, design: .monospaced))
+                .notchFont(13, weight: .medium, design: .monospaced)
                 .foregroundStyle(statusGradient)
                 .lineLimit(1)
 
@@ -910,7 +939,7 @@ struct CollapsedNotchContent: View {
            let title = session.firstUserMessage ?? session.conversationInfo.summary {
             let truncated = title.count > 24 ? String(title.prefix(24)) + "\u{2026}" : title
             Text(truncated)
-                .font(.system(size: 13, weight: .medium, design: .monospaced))
+                .notchFont(13, weight: .medium, design: .monospaced)
                 .foregroundStyle(statusGradient)
                 .lineLimit(1)
 
@@ -937,7 +966,7 @@ struct CollapsedNotchContent: View {
     private var carouselToolAction: some View {
         if let label = toolActionLabel {
             Text(label)
-                .font(.system(size: 13, weight: .medium, design: .monospaced))
+                .notchFont(13, weight: .medium, design: .monospaced)
                 .foregroundStyle(statusGradient)
                 .lineLimit(1)
 
@@ -955,13 +984,13 @@ struct CollapsedNotchContent: View {
                 ? session.projectName
                 : "\(session.projectName) \u{00B7} \(duration)"
             Text(display)
-                .font(.system(size: 13, weight: .medium, design: .monospaced))
+                .notchFont(13, weight: .medium, design: .monospaced)
                 .foregroundStyle(statusGradient)
                 .lineLimit(1)
 
         } else if let parts = activityTextParts {
             Text(parts.project)
-                .font(.system(size: 13, weight: .medium, design: .monospaced))
+                .notchFont(13, weight: .medium, design: .monospaced)
                 .foregroundStyle(statusGradient)
                 .lineLimit(1)
 
@@ -1032,8 +1061,8 @@ struct CollapsedNotchContent: View {
 
             if showOverflow {
                 Text("+\(totalActive - 7)")
-                    .font(.system(size: 11, weight: .medium, design: .monospaced))
-                    .foregroundColor(.white.opacity(0.5))
+                    .notchFont(11, weight: .medium, design: .monospaced)
+                    .notchSecondaryForeground()
                     .padding(.leading, 1)
             }
         }
@@ -1060,8 +1089,8 @@ struct ScrollingTextView: View {
             let availableWidth = geo.size.width
 
             Text(text)
-                .font(.system(size: 13, weight: .regular, design: .monospaced))
-                .foregroundColor(.white.opacity(0.5))
+                .notchFont(13, weight: .regular, design: .monospaced)
+                .notchSecondaryForeground()
                 .lineLimit(1)
 
                 .background(
