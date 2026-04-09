@@ -26,6 +26,10 @@ struct NotchLiveEditOverlay: View {
     @State private var subMode: NotchEditSubMode = .resize
     @State private var isInteracting: Bool = false
     @State private var presetMarkerVisible: Bool = false
+    /// Offset captured at the start of a drag gesture so deltas
+    /// accumulate from the committed store value rather than from
+    /// zero on every onChanged callback. Spec 5.5.
+    @State private var dragStartOffset: CGFloat = 0
     /// Callback fired when the user commits or cancels the edit
     /// session, so the controller that created the panel can tear
     /// down the window.
@@ -60,6 +64,24 @@ struct NotchLiveEditOverlay: View {
                         )
                 )
                 .accessibilityHidden(true)
+                .contentShape(Rectangle())
+                .gesture(
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { value in
+                            guard subMode == .drag else { return }
+                            if !isInteracting {
+                                isInteracting = true
+                                dragStartOffset = store.customization.horizontalOffset
+                            }
+                            let newOffset = dragStartOffset + value.translation.width
+                            store.update { $0.horizontalOffset = newOffset }
+                        }
+                        .onEnded { _ in
+                            guard subMode == .drag else { return }
+                            isInteracting = false
+                            dragStartOffset = store.customization.horizontalOffset
+                        }
+                )
 
             // Arrow buttons (◀ ▶) for symmetric resize.
             HStack(spacing: 28) {

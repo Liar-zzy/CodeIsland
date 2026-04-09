@@ -196,6 +196,17 @@ struct NotchView: View {
     private let openAnimation = Animation.spring(response: 0.42, dampingFraction: 0.8, blendDuration: 0)
     private let closeAnimation = Animation.spring(response: 0.45, dampingFraction: 1.0, blendDuration: 0)
 
+    /// User-customized horizontal offset of the notch, clamped at
+    /// render time so an off-screen stored value on a smaller
+    /// secondary display never bleeds past the edge. Spec 5.5.
+    private var clampedHorizontalOffset: CGFloat {
+        NotchHardwareDetector.clampedHorizontalOffset(
+            storedOffset: notchStore.customization.horizontalOffset,
+            runtimeWidth: viewModel.status == .opened ? notchSize.width : closedContentWidth,
+            screenWidth: viewModel.screenRect.width
+        )
+    }
+
     // MARK: - Body
 
     var body: some View {
@@ -271,6 +282,7 @@ struct NotchView: View {
                             }
                         }
                     )
+                    .offset(x: clampedHorizontalOffset)
             }
         }
         .opacity(isVisible ? 1 : 0)
