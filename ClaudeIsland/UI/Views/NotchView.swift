@@ -631,18 +631,14 @@ struct NotchView: View {
         let newQuestionIds = currentIds.subtracting(previousWaitingForQuestionIds)
 
         if !newQuestionIds.isEmpty {
-            // A session just entered waitingForQuestion — auto-open and show the question UI
+            // A session just entered waitingForQuestion — always show the question UI.
+            // AskUserQuestion should NOT be suppressed by smart suppression — the user
+            // wants to use Code Island as a quick-reply interface even when the terminal
+            // is frontmost.
             if let session = questionSessions.first(where: { newQuestionIds.contains($0.stableId) }) {
-                // Smart suppression: don't expand if user's terminal is frontmost
-                let termFront = TerminalVisibilityDetector.isTerminalFrontmost()
-                DebugLogger.log("AskUser", "[question] newIds=\(newQuestionIds.count) termFront=\(termFront)")
-                if smartSuppression && termFront {
-                    DebugLogger.log("AskUser", "[question] Suppressed — terminal frontmost")
-                } else {
-                    DebugLogger.log("AskUser", "[question] Opening notification with question UI")
-                    viewModel.notchOpen(reason: .notification)
-                    viewModel.showQuestion(for: session)
-                }
+                DebugLogger.log("AskUser", "[question] newIds=\(newQuestionIds.count) — opening question UI")
+                viewModel.notchOpen(reason: .notification)
+                viewModel.showQuestion(for: session)
             }
 
             // Bounce the notch to attract attention
